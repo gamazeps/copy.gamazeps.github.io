@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>gama's ramblings - Work Journal 03</title>
+        <link rel="stylesheet" href="../css/default.css" />
+        <link rel="stylesheet" href="../css/syntax.css" />
+        <link rel="stylesheet" href="../css/code.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">gama's ramblings</a>
+            </div>
+            <div id="navigation">
+                <a href="../">Home</a>
+                <a href="../about.html">About</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Work Journal 03</h1>
+            <div class="info">
+    Posted on March  5, 2017
+    
+        by Felix Raimundo
+    
+</div>
+
+<h1 id="weekend-update">Weekend update</h1>
+<h2 id="friday">Friday</h2>
+<p>Friday was a mixed day, I managed to finsh what I planned in my job, fixed a fair amount of bugs and wrote the <a href="https://github.com/tweag/jarify">jarify</a> and <a href="https://github.com/tweag/functionless">fuctionless</a> blog post, but after that I went to the cinema and drank beers with friends until 3 a.m.</p>
+<p>The movie, John Wick 2, was nice but left me a bit disapointed. The best summary of this movie was done by a friend: “The first one was an unexpected success, so they tried to do the same movie, but stronger”.</p>
+<h2 id="saturday">Saturday</h2>
+<p>Saturday was not very good either, I managed to watch the third video of reinforcement learning.</p>
+<p>This mostly dealt with planning in Markov decision processes using dynamic programming. This lecture assumed that the planning problem was done with a model, thus all states and action value transitions were known (not the full reinforcement learning problem).</p>
+<p>The three following slides are a good summary of what needs to be remembered from it:</p>
+<p><img src="../images/MDP-summary.png" alt="MDP-summary" /> <img src="../images/MDP-policy-iteration.png" alt="MDP-policy-iteration" /> <img src="../images/MDP-value-iteration.png" alt="MDP-value-iteration" /></p>
+<p>The algorithms used there can also be applied in an asynchronus manner which makes then easier to implement (much like an SGD is a good tool in deep learning).</p>
+<p>The convergence is given by the Bellman equation, since we provide a partial ordering of policies and get a better one at each iteration we are guaranteed to converge (bounded monotic function), and the convergence value is indeed the optimal one, which can be proven using the Bellman optimality equation.</p>
+<h2 id="sunday">Sunday</h2>
+<h3 id="plan">Plan</h3>
+<p>On sunday the plan is to:</p>
+<ul>
+<li>Read a fair amount of “The grid” and hopefuly finish it.</li>
+<li>Catch up on the work journal entries I missed the last two days</li>
+<li>Watch RL 4.</li>
+<li>Read chapters 1 and 2 of the Deep Learning book.</li>
+<li>Do a few exercises of craking the coding interview, in order to stay sharp.</li>
+<li>Read <a href="https://drive.google.com/file/d/0B1T58bZ5vYa-QlR0QlJTa2dPWVk/view">Detecting Cancer Metastases on Gigapixel Pathology Images</a>.</li>
+<li>Fix pelican on my new computer (right now nothing is published).</li>
+</ul>
+<p>I went to the library and planned my day in order to be less distracted and see if this indeed works.</p>
+<h3 id="reality">Reality</h3>
+<p>Things went pretty well, the library is rather efficient.</p>
+<p>Lesson 4 of RL introduced policy evaluation for in model-free problems. This has three approaches:</p>
+<ul>
+<li>Markov chains: sampling of an episode and update of the value function at the end.</li>
+<li>TD: sampling of a single step, and update at each step.</li>
+<li>TD(λ): sampling of multiple steps with updates.</li>
+</ul>
+<p>TD(0), is bisaed but has much lower variance than MC, converges slightly better and is great for online learning. TD(λ) takes the best of the two worlds.</p>
+<p>The grid chapters I read were mostly about how trees are bad, wires untrustworthy, why utilities are interest in smart counters and smart grids (mostly to control consumption by shutting down the AC in case of peak power) and why peak power is an issue (10% slack is needed 2% of the time and uses the worst genrators possible).</p>
+<p>Cracking the coding interview, was surprisingly easy, I guess I stayed sharp on that or just remembered the solutions (quite likely).</p>
+<p>I read 1 chapter of Deep Learning (Intro), which was rather interesting and presented the advances in that area.</p>
+<p>The Google paper on CNN for breast cancer detection seemed more like a paper decribing how to use Inception and GoogLeNet, but I may have missed the point of it. On the other hand it is a great description of the thought process of the team (then again it is a 7 pages paper, so there is not much to write about).</p>
+<p>I unfortunately did not fix pelican, I will try and do that tomorrow night.</p>
+<p>I still have time to read the second chapter of Deep Learning but will probably not though.</p>
+<h1 id="plan-for-monday">Plan for Monday</h1>
+<p>Monday’s plan is the following</p>
+<ul>
+<li>Gym
+<ul>
+<li>7 km, with interval training</li>
+<li>3 * 1 minute of planks</li>
+<li>3 * 10 reverse crunches</li>
+<li>3 * 10 pecs machine with 65Kgs</li>
+</ul></li>
+<li>Chapters 2 of <code>Deep Learning</code> book</li>
+<li>2 chapters of <code>The grid</code></li>
+<li>Video 5 of Reinforcement learning</li>
+<li>Avocado salad for dinner</li>
+<li>Finish Folds chapter in the Haskell Book</li>
+</ul>
+<h1 id="objectives-of-the-week">Objectives of the week</h1>
+<p>Ideally I would like to finish:</p>
+<ul>
+<li>Reinforcement Learning class.</li>
+<li><code>Deep Learning</code> part 1 (basic linear algebra, probas, optimisation and Machine Learning).</li>
+<li><a href="https://github.com/soumith/cvpr2015/blob/master/Deep%20Learning%20with%20Torch.ipynb">Deep Learning with Torch: the 60-minute blitz</a>.</li>
+<li><a href="https://www.youtube.com/watch?v=F1ka6a13S9I">Nuts and Bolts of Applying Deep Learning (Andrew Ng)</a>.</li>
+<li>Get an Idea of the pros and cons of torch vs keras vs cafe vs lasagna vs tensorflow.</li>
+<li>Look at the implementation of linear and logistic cells in torch.</li>
+</ul>
+<p>Generally speaking, be done with the basic theory in deep learning / machine learning and start implementing models.</p>
+
+        </div>
+
+        <div id="footer">
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </div>
+    </body>
+</html>

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>gama's ramblings - Designing Robots Futures - Part 4</title>
+        <link rel="stylesheet" href="../css/default.css" />
+        <link rel="stylesheet" href="../css/syntax.css" />
+        <link rel="stylesheet" href="../css/code.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">gama's ramblings</a>
+            </div>
+            <div id="navigation">
+                <a href="../">Home</a>
+                <a href="../about.html">About</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Designing Robots Futures - Part 4</h1>
+            <div class="info">
+    Posted on January 18, 2016
+    
+        by Felix Raimundo
+    
+</div>
+
+<h1 id="futures-as-actor">Futures as Actor</h1>
+<p>Today I got a good idea, instead of just having futures behave as actors, why not have them <em>be</em> actors ?</p>
+<ul>
+<li>This would solve the issue of passing them context.</li>
+<li>This would solve the issue of scheduling them.</li>
+<li>This would solve the issue of monitoring them.</li>
+</ul>
+<p>Overall it sounds like a pretty good deal.</p>
+<p>Now what is the drawback in that ?</p>
+<p>The api might be a bit messier, indeed we would need to ‘send’ them a message.</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust">context.tell(future, |msg, context| <span class="op">{</span> <span class="co">// do some stuff</span>
+	context.tell(foo, bar);
+<span class="op">}</span>);</code></pre></div>
+<p>The nice thing is that in order to get the value of the end calculation we would simply do</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust"><span class="kw">let</span> f = Future::new(); <span class="co">// or let f = some_acor.ask(foo)?</span>
+<span class="co">// Let's schedule some calculations.</span>
+context.tell(f, some_func_1);
+context.tell(f, some_func_2);
+<span class="co">// Let's get the result of the calculation in a message.</span>
+context.tell(f, |msg, context| <span class="op">{</span>context.tell(context.sender(), msg)<span class="op">}</span>);</code></pre></div>
+<p>Now the API issue could be solved with some nice macros such as:</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust"><span class="co">// Sending a mesdsage to the future.</span>
+<span class="pp">then_do!</span>(future, <span class="op">{</span>some.code()<span class="op">}</span>);
+<span class="co">// Getting the value out the future.</span>
+<span class="pp">extract_value!</span>(future);</code></pre></div>
+<p>So this seems like a good deal overall, there is only one issue left here: with this model we lose the abality to fail when completing a future twice, indeed the caller will interract with a simple actor, so it will be the Future’s job to refuse the second completion (it could send an Error to the actor trying to complete the future a second time, but there is thus some rror handling needed).</p>
+<p>We could send a special message to have the caller fail (send him a panic message for example).</p>
+<p>Overall I am quite satisfied with this design idea as it solves most of m issues in a rather elegant manner, the main drawbacks being API and error handling, which can both be solved in a rather satisfying manner.</p>
+<p>I think I will implement Futures this way tomorrow and see how it goes (since I use them inside my core code I will be able to see if this API is really correct or not).</p>
+<h1 id="some-more-details">Some more details</h1>
+<p>What we would have is the something looking like the following:</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust"><span class="kw">struct</span> Future <span class="op">{</span>
+    value: Mutex&lt;<span class="dt">Option</span>&lt;<span class="dt">Box</span>&lt;Any&gt;&gt;&gt;,
+<span class="op">}</span>
+
+<span class="kw">impl</span> Actor <span class="kw">for</span> Future <span class="op">{</span>
+    <span class="kw">fn</span> receive(&amp;<span class="kw">self</span>, msg: <span class="dt">Box</span>&lt;Any&gt;, context: ActorCell) <span class="op">{</span>
+        <span class="kw">let</span> <span class="kw">mut</span> value = *<span class="kw">self</span>.value.lock().unwrap();
+        <span class="kw">let</span> v = value.take();
+        <span class="kw">match</span> v <span class="op">{</span>
+            <span class="cn">None</span> =&gt; *value = <span class="cn">Some</span>(msg),
+            <span class="cn">Some</span>(v) =&gt; <span class="op">{</span>
+                <span class="co">// try to cast the msg in a closure that we will call f.</span>
+                <span class="kw">let</span> v = <span class="cn">Some</span>(f(context, v));
+                <span class="kw">match</span> v <span class="op">{</span>
+                    <span class="co">// If the closure returns a correct value we update the value inside the Future.</span>
+                    <span class="cn">Ok</span>(v) =&gt; *value = <span class="cn">Some</span>(v),
+                    <span class="co">// Otherwise we die, this will be able to send termination notices.</span>
+                    <span class="cn">Err</span>(_) =&gt; context.kill_me(),
+                <span class="op">}</span>
+            <span class="op">}</span>
+        <span class="op">}</span>
+    <span class="op">}</span>
+<span class="op">}</span></code></pre></div>
+<p>This is a rough draft, but you get the idea (some error handling is obviously missing here).</p>
+
+        </div>
+
+        <div id="footer">
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </div>
+    </body>
+</html>

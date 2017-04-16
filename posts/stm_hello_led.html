@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>gama's ramblings - Hello LED !</title>
+        <link rel="stylesheet" href="../css/default.css" />
+        <link rel="stylesheet" href="../css/syntax.css" />
+        <link rel="stylesheet" href="../css/code.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">gama's ramblings</a>
+            </div>
+            <div id="navigation">
+                <a href="../">Home</a>
+                <a href="../about.html">About</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Hello LED !</h1>
+            <div class="info">
+    Posted on February 20, 2016
+    
+        by Felix Raimundo
+    
+</div>
+
+<h1 id="hello-world">Hello world !</h1>
+<p>Just like in most tutorial we will start with a hello world here.</p>
+<p>The only issue is that we don’t yet know how to make our board print things, so we will have to make do with blinking an LED (just like in most microcontrollers tutorial actually).</p>
+<h1 id="first-things-first.">First things first.</h1>
+<p>You will need an STM32F407 discovery board for most of these tutorial, so better get one.</p>
+<div class="figure">
+<img src="../images/stm32.jpg" alt="stm32" />
+<p class="caption">stm32</p>
+</div>
+<p>Once you have that you will need to plug your board to your computer, for that use a mini USB wire.</p>
+<div class="figure">
+<img src="../images/Mini_usb_AB.jpg" alt="MiniUSB" />
+<p class="caption">MiniUSB</p>
+</div>
+<p>And that’s about it, indeed we are going to use the LEDs already on the board.</p>
+<h1 id="create-a-project.">Create a project.</h1>
+<p>In theory we are supposed to describe which microcontroller we are using, what is plugged to its pins and so on, hopefully since the board we are using is a common one, there is already an example in ChibiOS/RT’s demos, so let’s borrow it.</p>
+<p>Remember the file structure we are supposed to have: ChibiOS’s sources are at the same level that the folders that will contain your projects.</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="co"># Go to the folder above chibios.</span>
+<span class="fu">cp</span> -r ChibiOS/demos/STM32/RT-STM32F407-DISCOVERY Hello</code></pre></div>
+<p>Now you need to update the location of ChibiOs’s sources in your projects’s Makefile. To do so set the <code>$CHIBIOS</code> variable to <code>../ChibiOS</code> in Hello/Makefile</p>
+<p>You can also change the PROJECT variable to hello instead of ch, it will simply change the name of the generated binaries to hello.* instead of ch.*.</p>
+<p>Check that you are able to compile your project:</p>
+<pre><code>cd Hello
+make -j8</code></pre>
+<h1 id="write-some-code">Write some code</h1>
+<p>Now that we have a nice empty project we can start writting some code !</p>
+<p>First erase the main.c of the project, we want to write our own one.</p>
+<p>Now replace it with the following:</p>
+<div class="sourceCode"><pre class="sourceCode c"><code class="sourceCode c"><span class="co">// Include the hardware abstraction layer.</span>
+<span class="pp">#include “hal.h”</span>
+<span class="co">// Inlude ChibiOS's primitives.</span>
+<span class="pp">#include “ch.h”</span>
+
+<span class="dt">int</span> main(<span class="dt">void</span>) {
+    halInit(); <span class="co">// Initializes hardware abstraction layer.</span>
+    chSysInit(); <span class="co">// Initializes ChibiOS kernel.</span>
+
+    <span class="co">// Configures GPIOD pin 15 as output pushpull</span>
+    palSetPadMode(GPIOD, <span class="dv">15</span>, PAL_MODE_OUTPUT_PUSHPULL);
+
+    <span class="cf">while</span>(<span class="dv">1</span>) {
+        palSetPad(GPIOD, <span class="dv">15</span>); <span class="co">// sets GPIOD 15 high</span>
+        chThdSleepMilliseconds(<span class="dv">500</span>); <span class="co">// sleeps for 500ms</span>
+        palClearPad(GPIOD, <span class="dv">15</span>); <span class="co">// sets GPIOD 15 low</span>
+        chThdSleepMilliseconds(<span class="dv">500</span>); <span class="co">// sleeps for 500ms</span>
+    }
+
+    <span class="co">// Even though we will never return we still need to add a return value.</span>
+    <span class="cf">return</span> <span class="dv">0</span>;
+}</code></pre></div>
+<p>This will make a LED blink on the board with a switch every 0.5 second.</p>
+<p>Now let’s see what this code does.</p>
+<div class="sourceCode"><pre class="sourceCode c"><code class="sourceCode c"><span class="co">// Include the hardware abstraction layer.</span>
+<span class="pp">#include “hal.h”</span>
+<span class="co">// Inlude ChibiOS's primitives.</span>
+<span class="pp">#include “ch.h”</span></code></pre></div>
+<p>This includes the appropriate libraries to use the HAL (for controlling the LED) and ChibiOS (for the sleeps).</p>
+<div class="sourceCode"><pre class="sourceCode c"><code class="sourceCode c"><span class="dt">int</span> main(<span class="dt">void</span>) {
+    <span class="co">// ...</span>
+    <span class="co">// ...</span>
+}</code></pre></div>
+<p>This is our <code>main</code> function, that is (as a first approximation) where we put our code to do things with the board. Once it returns, the processor will stop doing things.</p>
+<div class="sourceCode"><pre class="sourceCode c"><code class="sourceCode c">    halInit(); <span class="co">// Initializes hardware abstraction layer.</span>
+    chSysInit(); <span class="co">// Initializes ChibiOS kernel.</span></code></pre></div>
+<p>This initializes the HAL and ChibiOS, you will have that in pretty much all your projects’ <code>main</code>.</p>
+<div class="sourceCode"><pre class="sourceCode c"><code class="sourceCode c">    <span class="co">// Configures GPIOD pin 15 as output pushpull</span>
+    palSetPadMode(GPIOD, <span class="dv">15</span>, PAL_MODE_OUTPUT_PUSHPULL);</code></pre></div>
+<p>This configures the pin on which the LED is soldered to act as a simple binary output, we will go into further details into what this configuration means in a later post.</p>
+<div class="sourceCode"><pre class="sourceCode c"><code class="sourceCode c">    <span class="cf">while</span>(<span class="dv">1</span>) {
+        palSetPad(GPIOD, <span class="dv">15</span>); <span class="co">// sets GPIOD 15 high</span>
+        chThdSleepMilliseconds(<span class="dv">500</span>); <span class="co">// sleeps for 500ms</span>
+        palClearPad(GPIOD, <span class="dv">15</span>); <span class="co">// sets GPIOD 15 low</span>
+        chThdSleepMilliseconds(<span class="dv">500</span>); <span class="co">// sleeps for 500ms</span>
+    }</code></pre></div>
+<p>This is our main execution loop, the program will stay in it (it’s a simple <code>while(true)</code>).</p>
+<p>The <code>palSetPad</code> and <code>palClearPad</code> functions allow us to set a pin to HIGH or LOW state. They take two arguments:</p>
+<ul>
+<li>The port: In real life, pins are grouped in packs of 16, each pack is called a port (A, B, C…).</li>
+<li>The pin number: The number of the pin.</li>
+</ul>
+<p>Here we want to modify the pin D15, so the port is GPIOD (a pin whose logical state we modify is called a GPIO) and the pin number is 15.</p>
+<p>More documentation can be found <a href="http://chibios.sourceforge.net/docs3/hal/group___p_a_l.html#gaf2c820c1657afa77cdce398329baaf68">here</a>.</p>
+<p>The last function that we see here is <code>chThdSleepMilliseconds</code> which simply makes <code>main</code> sleep for 500 milliseconds. This actually works for all threads, but we will go into deeper details on that in posts about threads.</p>
+<p>Well that’s about it for the code, now you just have to compile it !</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="fu">make</span> -j8
+<span class="fu">ls</span> build <span class="co"># See the generated files.</span></code></pre></div>
+<h1 id="and-now-what">And now what ?</h1>
+<p>Now we will need to put the generated binary on the board, but we will see that in the next post, indeed I do not currently have a board on me so I can’t check that what I am saying is correct :/</p>
+
+        </div>
+
+        <div id="footer">
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </div>
+    </body>
+</html>

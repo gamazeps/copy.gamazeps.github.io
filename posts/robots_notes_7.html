@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>gama's ramblings - Notes 7</title>
+        <link rel="stylesheet" href="../css/default.css" />
+        <link rel="stylesheet" href="../css/syntax.css" />
+        <link rel="stylesheet" href="../css/code.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">gama's ramblings</a>
+            </div>
+            <div id="navigation">
+                <a href="../">Home</a>
+                <a href="../about.html">About</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Notes 7</h1>
+            <div class="info">
+    Posted on February  8, 2016
+    
+        by Felix Raimundo
+    
+</div>
+
+<h1 id="futures">Futures</h1>
+<p>Now we need to implement the features mentionned in the previous post.</p>
+<p>Since I used actors and message passing for the interface it should be pretty easy to change the previous implementation into the new one, indeed only the logic about how to handle messages in the Future will need to be changed (or else I coded badly).</p>
+<p>Changing the message type was realy fast since I already had my API, so this was nice.</p>
+<h1 id="work-done">Work done</h1>
+<p>I got time to change the implementation of the Future and it works on the examples.</p>
+<p>I’m trying to fix the tests now, next will be a documentation update to be done (I know that i’m supposed to write it as I code, but since the code was <em>super</em> unstable it felt like a waste of time).</p>
+<p>While working on the tests it seems that i managed to create a segfault (signal 11) that only happens when testing (the code in the test is basically the same that <code>examples/panic.rs</code>.</p>
+<p>The output is pretty fun</p>
+<pre><code>running 5 tests
+test resolve_name_fake_path ... FAILED
+test ask_answer_twice ... FAILED
+test resolve_name_real_path ... FAILED
+thread '&lt;unnamed&gt;' panicked at 'The actor panicked as it was asked to.', test/test.rs:49
+test recover_from_panic ... ok
+Process didn't exit successfully: `/home/gamazeps/dev/RobotS/target/debug/test-88599447cc0525b5` (signal: 11)
+
+Caused by:
+  Process didn't exit successfully: `/home/gamazeps/dev/RobotS/target/debug/test-88599447cc0525b5` (signal: 11)</code></pre>
+<p>That’s pretty weird since it only happens when the actor that is supposed to panick, panicks. Furthermore, the test exits even before sending any messages, which is incredibly weird.</p>
+<p>This segfault issue appeared in other tests, I will need to investigate this more, but this is very weird. Indeed segfault are only supposed to happen in rust in unsafe code and my code only contains a single piece of <code>unsafe</code>, but the part where it could have caused an issue went fine.</p>
+<p>Actually after some investigation it seems that the issue might very well come from my unsafe piece. Indeed it takes the value from an Arc and puts it in a box with a <code>from_raw</code> and the value is lastly dereferenced in the <code>FutureExtractor</code>.</p>
+<p>Sooo I found the issue, I actually misread the <a href="http://doc.rust-lang.org/std/boxed/struct.Box.html#method.from_raw">doc</a> when i wrote that unsafe part, <code>from_raw</code> can only be used if it comes from an <code>into_raw</code>.</p>
+<p>Ok so I found why I had this issue, my future can be completed with any given type, I thus needed to send it a Box&lt;Any&gt;, except that this is obviously not <code>Sync</code>, thus I chose to use an Arc&lt;Any + Send + Sync&gt; and then try to put the content of the Arc into the future. But doing that was not supported in an obvious way by rust, so I tried to trick it and that was not smart of me.</p>
+<p>I’ll try to find a better to send the complete message to a future but i might just put the message in the mailbox myself.</p>
+<p>It is bad because it breaks an invariant which is that messages are copyable.</p>
+<p>It is ok, because the data will be put in the future’s mailbox and it will then become copyable.</p>
+<p>So it does not really break the invariant in the facts, it just feels incredibly fishy.</p>
+<p>Sooooo that did not work, because our enum had a variant that was Send + Sync, and one that was not, so when I try to call a function that requires Send + Sync with the good variant the compiler complained (it seems that types are determined for the enum, not the variants…).</p>
+<p>I also learned that Box&lt;SyncType&gt; was Sync, even though it was nowhere to be found (a core dev told me so and linked me to the issue on <a href="https://github.com/rust-lang/rust/issues/17606">rustdoc</a> ) so I tried to put a variant with Arc&lt;Box&lt;Any + Send + Sync + Clone&gt;&gt; but that did not work because of the <a href="https://doc.rust-lang.org/error-index.html#E0225">E0225</a> since Clone is not a builtin trait.</p>
+<p>This made me rather unhappy because I have no way to put my completed value directly in the enum or in an Arc because of the two issues mentionned above. The only solution left is to put the Box in a Arc&lt;&lt;Mutex&gt;&gt; so that we get Syn, but that’s ridiculisly overkill, especially since we will also need to wrap it in an option to get it out of the mutex…</p>
+<p>I will implement this tomorrow, coding in anger is a bad idea…</p>
+
+        </div>
+
+        <div id="footer">
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </div>
+    </body>
+</html>

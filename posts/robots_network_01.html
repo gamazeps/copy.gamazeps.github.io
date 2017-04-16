@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>gama's ramblings - Sending and receiving message to distant actors.</title>
+        <link rel="stylesheet" href="../css/default.css" />
+        <link rel="stylesheet" href="../css/syntax.css" />
+        <link rel="stylesheet" href="../css/code.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">gama's ramblings</a>
+            </div>
+            <div id="navigation">
+                <a href="../">Home</a>
+                <a href="../about.html">About</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Sending and receiving message to distant actors.</h1>
+            <div class="info">
+    Posted on December 27, 2015
+    
+        by Felix Raimundo
+    
+</div>
+
+<h1 id="sending-messages-accross-network.">Sending messages accross network.</h1>
+<p>We now have a kinda working actor system on a local instance, this is good, but not good enough. We would like to have multiple actor systems accross many machines and have them comunicate with each other. Even better we would like our actors to be able to communicate from an instance to another one in a transparent way.</p>
+<h2 id="a-better-actorpath.">A better ActorPath.</h2>
+<p>To do so we will have to add some information on our ActorPath. Previously it only contained a path to the actor in the form of a string (a bit like a URI), for example: <code>/user/big_actor/small_actor</code>, this is all fine and dandy but that will not help us go very far.</p>
+<p>The idea for an improvement would be the following:</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust"><span class="kw">struct</span> ActorPath <span class="op">{</span>
+    path: Arc&lt;<span class="dt">String</span>&gt;,
+    machine_info: MachineInfo,
+<span class="op">}</span>
+
+<span class="kw">enum</span> MachineInfo <span class="op">{</span>
+    Local,
+    Distant(ConnectionInfo),
+<span class="op">}</span>
+
+<span class="kw">struct</span> ConnectionInfo <span class="op">{</span>
+    address: Arc&lt;<span class="dt">String</span>&gt;,
+    port: <span class="dt">u32</span>,
+<span class="op">}</span></code></pre></div>
+<p>And we change the <code>path(&amp;self)</code> method in the <code>CanReceive</code> trait to give an <code>ActorPath</code> instead of an <code>Arc&lt;String&gt;</code>.</p>
+<h2 id="sending-messages-to-distant-actors.">Sending messages to distant actors.</h2>
+<p>Now when we want to send a message to a CanReceive we will check wether it is local or not, if it is local, then we do not change a thing from what we used to do before. Now if this is not local we will send it to the <code>system actor</code>.</p>
+<p>The <code>system actor</code> is the actor which manages the system related actions, for example sending messages to distant actors and creating the dead letters actors (that’s all for now, but the idea is that it manages actors needed for the actor system to work).</p>
+<p>The point of having a system actor is that it manages its thread separately from the ones of the user.</p>
+<p>So the system actor will have a child in charge of sending messages to distant actors, let’s call it <code>network actor</code>. This <code>network actor</code> will receive the message from our local actor, and send it to the address on the specified port.</p>
+<ul>
+<li>If it encounters this (address, port) pair for the first time it will create an actor to open a socket and it will send the message with this socket (without closing it). The network actor will then store a CanReceive to this actor.</li>
+<li>If it has already encountered this (address, port) pair, it sends it to the actor created above.</li>
+</ul>
+<p>The message will be sent under the form (it will be serialized, but this si just to give a rough idea):</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust"><span class="kw">struct</span> DistantMessage <span class="op">{</span>
+    from: ActorPath,
+    to: ActorPath,
+    message: InnerMessage, <span class="co">// This is what is used to represent messages in the local case.</span>
+<span class="op">}</span></code></pre></div>
+<p>We can now send to a distant actor, now let’s see how we receive from a distant actor.</p>
+<h2 id="receiving-messages-from-distant-actors.">Receiving messages from distant actors.</h2>
+<p>The system actor provides a network actor and he is in charge of connections to distant actor systems.</p>
+<p>In order to be able to receive from another actor system we first need to open a connection to it. This connection can either:</p>
+<ul>
+<li>Have already been created while sending messages to this actor system.</li>
+<li>Have to be explicitly created. This will be done by asking the actor system to explicitly start a connection (with a method like <code>start_connnection(&amp;self, address: String, port: u32)</code>).</li>
+</ul>
+<p>We thus have to listen on taht socket and when something is received, the actor will send the message to the targetted actor (we thus need a way to obtain a CanReceive from a local ActorPath), and put the distant actor as the sender.</p>
+<p>And that’s about it!</p>
+
+        </div>
+
+        <div id="footer">
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </div>
+    </body>
+</html>

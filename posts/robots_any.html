@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>gama's ramblings - Why Box&lt;Any></title>
+        <link rel="stylesheet" href="../css/default.css" />
+        <link rel="stylesheet" href="../css/syntax.css" />
+        <link rel="stylesheet" href="../css/code.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">gama's ramblings</a>
+            </div>
+            <div id="navigation">
+                <a href="../">Home</a>
+                <a href="../about.html">About</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Why Box&lt;Any></h1>
+            <div class="info">
+    Posted on January 12, 2016
+    
+        by Felix Raimundo
+    
+</div>
+
+<h1 id="why-using-boxany">Why using Box&lt;Any&gt;</h1>
+<p>Indeed that is a question that I am always asked (and that I also often ask myself), so I thought it would be a good idea to put the reaons here, who knows someone might find a flaw in them.</p>
+<p>It is also a nice way of rubber ducking for me.</p>
+<h2 id="different-message-types.">Different message types.</h2>
+<p>Well it’s not really a big problem, but not having a Box&lt;Any&gt; as messages implies that Actors can only receive a single type of messages. Indeed the mailbox cannot contain messages of just any type except if it uses an Any.</p>
+<p>Indeed the mailbox looks like:</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust"><span class="co">/// Struct that contains everything around the actor for it to work.</span>
+<span class="kw">struct</span> ActorCell <span class="op">{</span>
+    <span class="co">//...</span>
+    mailbox: Mutex&lt;VecDeque&lt;T&gt;&gt;,
+<span class="op">}</span></code></pre></div>
+<p>So different types may imply a Box&lt;Any&gt;.</p>
+<p>But “Why not use enums?” you will tell me. Rust enums are very powerful and would allow us to receive many messages, that is indeed a good idea but it fails in the long run, let’s see why.</p>
+<h2 id="why-not-enums">Why not enums?</h2>
+<p>Now if we have an enum, that we will call E, we could have the following:</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust"><span class="kw">enum</span> E <span class="op">{</span>
+    A(A),
+    B(B),
+<span class="op">}</span></code></pre></div>
+<p>And thus:</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust">    mailbox: Mutex&lt;VecDeque&lt;E&gt;&gt;,</code></pre></div>
+<p>Except that all actors do not acccept the same message set (note: or could they?), thus we need to have the ActorCell generic aver this enum:</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust"><span class="kw">struct</span> ActorCell&lt;E&gt; <span class="op">{</span>
+    <span class="co">//...</span>
+    mailbox: Mutex&lt;VecDeque&lt;E&gt;&gt;,
+<span class="op">}</span></code></pre></div>
+<p>The problem is that now, since ActorRef (addresses used to communicate with actors) can contain an ActorCell (they contain an enum which can have an ActorCell variant), they also need to be generic over the message set.</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust"><span class="kw">pub</span> <span class="kw">struct</span> ActorRef&lt;E&gt; <span class="op">{</span>
+    innerActor: InnerActor&lt;E&gt;,
+<span class="op">}</span>
+
+<span class="kw">enum</span> InnerActor&lt;E&gt; <span class="op">{</span>
+    Actor(ActorCell&lt;E&gt;),
+    <span class="co">// ...</span>
+<span class="op">}</span></code></pre></div>
+<p>And problems appear now!</p>
+<p>Remember how we represented the mailbox ? That was a bit of a lie, indeed this mailbox does not keep the sender information, and we want to have them.</p>
+<p>Thus we have Envelope&lt;E&gt; instead of E in the mailbox, with</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust"><span class="kw">struct</span> Envelope&lt;E&gt; <span class="op">{</span>
+    message: E,
+    sender ActorRef,
+<span class="op">}</span></code></pre></div>
+<p>But remenber, we just made ActorRef generic over the type of messages they receive, thus we have:</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust"><span class="kw">struct</span> Envelope&lt;E, F&gt; <span class="op">{</span>
+    message: E,
+    sender ActorRef&lt;F&gt;,
+<span class="op">}</span></code></pre></div>
+<p>But now our mailbox cannot hold Envelopes with different F, so it would mean that an actor can only receive message from a single type of actors, and that is pretty bad…</p>
+<p>Here it is, the horrible reason why we have Box&lt;Any&gt;.</p>
+
+        </div>
+
+        <div id="footer">
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </div>
+    </body>
+</html>
