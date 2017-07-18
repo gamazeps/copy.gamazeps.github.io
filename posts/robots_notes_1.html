@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>gama's ramblings - Notes 1</title>
+        <link rel="stylesheet" href="../css/default.css" />
+        <link rel="stylesheet" href="../css/syntax.css" />
+        <link rel="stylesheet" href="../css/code.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">gama's ramblings</a>
+            </div>
+            <div id="navigation">
+                <a href="../">Home</a>
+                <a href="../about.html">About</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Notes 1</h1>
+            <div class="info">
+    Posted on January 21, 2016
+    
+        by Felix Raimundo
+    
+</div>
+
+<h1 id="some-notes">Some notes</h1>
+<p>I recently realized that while working I had a lot of notes on many different and unreliable supports, this is bad…</p>
+<p>So I’m going to put my research notes about robots in a series of notes posts, this way it will be easier to document the design choices, dead ends and openings I found.</p>
+<h1 id="some-coding.">Some coding.</h1>
+<p>The design mentionned in the previous post is kinda implemented, I’m still trying to figure out how to get a proper API.</p>
+<p>My current issue is with the extraction of the value contained in the future (equivalent to akka’s <code>pipeTo</code>). Indeed at first I wanted to have an <code>extract!</code> macro, but it had a small issue.</p>
+<p>Indeed extracting the value is nice, but i want to be able to destroy my future once this is done.</p>
+<p>In the same way I needed to know how to complete my future.</p>
+<p>The first idea that came to my mind was to have an enum for the messages a future would receive:</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust"><span class="kw">enum</span> FutureMessages <span class="op">{</span>
+    Complete(<span class="dt">Box</span>&lt;Any&gt;),
+    <span class="co">// Note that the Send in the Box is so that the Future actor is Send as it has to store</span>
+    <span class="co">// this inside it.</span>
+    <span class="co">// Here I put an Option, but it is supposed to act as an Error, I just wanted to have</span>
+    <span class="co">// first version rolling.</span>
+    Calculation(<span class="dt">Box</span>&lt;<span class="bu">Fn</span>(<span class="dt">Box</span>&lt;Any&gt;, ActorCell) -&gt; <span class="dt">Option</span>&lt;<span class="dt">Box</span>&lt;Any + <span class="bu">Send</span>&gt;&gt;&gt;),
+    Extract,
+<span class="op">}</span></code></pre></div>
+<p>The API issue with this is that the extract has to send the content of the future which is an Option&lt;Box&lt;Any + Send&gt;&gt;.</p>
+<ul>
+<li>This content is not Send nor Sized, which thus cannot be used with the usual tell method.</li>
+<li>The recepient of the extracted value will receive a Box&lt;Any&gt; that he will have to cast in a Option&lt;Box&lt;Any&gt;&gt; (plus what will be needed to have the messages be Send), and then cast it again in the desired type. This is super bad…</li>
+</ul>
+<p>I’ll look into it by using enums as a return of an extract value.</p>
+<p>The two casting parts is hard to avoid, because we cannot have an Extract&lt;T&gt; message to send to the Future, and if we put the genericity in a regular calculation closure</p>
+<p>A solution could be t have functions that return an enum instead of an option, such as</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust"><span class="kw">enum</span> CalculationResult <span class="op">{</span>
+    Exracted,
+    <span class="dt">Result</span>(<span class="dt">Box</span>&lt;Any + <span class="bu">Send</span>&gt;),
+    <span class="co">// NOTE: no idea how to integrate this in the API.</span>
+    Error,
+<span class="op">}</span></code></pre></div>
+<p>and macros that would generate the following code:</p>
+<p><code>extract!(future, Type)</code> =&gt;</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust">context.tell(future, |message, context| <span class="op">{</span>
+    <span class="kw">match</span> <span class="dt">Box</span>::&lt;Any&gt;::downcast::&lt;Type&gt;(message) <span class="op">{</span>
+        <span class="cn">Ok</span>(message) =&gt; <span class="op">{</span>
+            context.tell(context.sender(), *message);
+            CalculationResult::Extracted
+        <span class="op">}</span>,
+        <span class="cn">Err</span>(_) =&gt; Error,
+    <span class="op">}</span>
+<span class="op">}</span>);</code></pre></div>
+<p><code>then_do!(future, some_func)</code> =&gt;</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust">context.tell(future, |message, context| <span class="op">{</span>
+    <span class="dt">Result</span>(<span class="dt">Box</span>::new(some_func(message, context)) <span class="kw">as</span> <span class="dt">Box</span>&lt;Any + <span class="bu">Send</span>&gt;)
+<span class="op">}</span>);</code></pre></div>
+<p>Thus we would be able to have the user feed us functions that can return any type that is <code>Send</code> which is much nicer, this will just require some more internal logic than the actual implementation.</p>
+<h1 id="some-readings.">Some readings.</h1>
+<p>Having recently realized that I have to implement my own futures and protocols for the networking, I decided to spend the day reading papers by Joe Armstrong to get some wisdom and experience.</p>
+<p>I started with: <a href="http://qconlondon.com/london-2010/qconlondon.com/dl/qcon-london-2010/slides/JoeArmstrong_MessagePassingConcurrencyInErlangAnArchitecturalBasisForScalableFaultTolerantSystems.pdf">“Message passing concurrency in Erlang”</a> by Joe Armstrong. hoping to get some nice insights on how this was done in Erlang. It gave me the idea to get a lok at amqp and rabitmq for sending my messages instead of havin my own protocol.</p>
+<p>This also scares me a little, since the slides 45-46 tend to suggest that Erlang found its power in its dynamic type system and encoding.</p>
+<p>Except for this part I feel that my current design and implementation are OK by what he describes as goodpractices (the big GOOD IDEA in his slides), which is nice.</p>
+<p>I then read <a href="http://lenary.co.uk/publications/dissertation/Elliott_BSc_Dissertation.pdf">“A concurrency system for IDRIS &amp; ERLANG”</a> by Archibald Samuel Elliott on the advice of <code>geal</code> from mozilla’s irc (he is the one responsible for the nom crate).</p>
+
+        </div>
+
+				<div id="disqus_thread"></div>
+				<script>
+				/**
+				*  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+				*  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables*/
+				/*
+				var disqus_config = function () {
+				this.page.url = PAGE_URL;  // Replace PAGE_URL with your page's canonical URL variable
+				this.page.identifier = PAGE_IDENTIFIER; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+				};
+				*/
+				(function() { // DON'T EDIT BELOW THIS LINE
+				var d = document, s = d.createElement('script');
+				s.src = 'https://gamazepsgithubio.disqus.com/embed.js';
+				s.setAttribute('data-timestamp', +new Date());
+				(d.head || d.body).appendChild(s);
+				})();
+				</script>
+				<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+        <div id="footer">
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </div>
+
+    </body>
+</html>

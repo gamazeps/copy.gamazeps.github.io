@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>gama's ramblings - Work Journal 08</title>
+        <link rel="stylesheet" href="../css/default.css" />
+        <link rel="stylesheet" href="../css/syntax.css" />
+        <link rel="stylesheet" href="../css/code.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">gama's ramblings</a>
+            </div>
+            <div id="navigation">
+                <a href="../">Home</a>
+                <a href="../about.html">About</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Work Journal 08</h1>
+            <div class="info">
+    Posted on April  8, 2017
+    
+        by Felix Raimundo
+    
+</div>
+
+<h1 id="paper-report-large-scale-machine-learning-for-metagenomics-sequence-classification">Paper report: Large scale machine learning for metagenomics sequence classification</h1>
+<p><a href="https://academic.oup.com/bioinformatics/article-lookup/doi/10.1093/bioinformatics/btv683">Source to the paper</a></p>
+<p>This paper was written in parts by Jean Philippe vert in which I am currently interested (I looked up who does fun genomics research in the Paris area and only his name came up).</p>
+<p>Metagenomics is the study of a large set of raw reads from an environment which contains different species.<br />
+There are two main applications: <em>taxonomic profling</em> (abundance of various species in the sample) and <em>taxonomic binning</em> (labelling of each read to a specific species).</p>
+<p>This article focuses on taxonomic binning using supervised learning, mostly with linear methods (here a MSE is used, so a simple linear classifier instead of an SVM).</p>
+<p>This also presents a <em>rank-flexible</em> approach which allows to decide to which rank of the taxonomy the prediction will be bound.</p>
+<p>Here the rank flexible approach is used on top of Vowpal Wabbit software, the main benchmark used here is the Kraken software, also based on a k-mers approach but not based on statistical methods.</p>
+<p>The VW-flex approach manages to achieve performances close to Kraken on uncorrupted data sets, and is also as robust on corrupted data (despite not being trained for it), but is still beaten in both cases by Kraken.</p>
+<p>Where VW-flex is more useful is on the <code>novel lineage</code> task, where it is asked to identify new species that are close to the ones it has already been trained on. Its recall is 4 times higher than Kraken (but also gets more wrong predictions).</p>
+<p>Overall the k-mer methods manage to achieve performances close to those achieved by alignment methods, which is not absurd as it works on less information than them (mostly because the feature space would become unmanagable as it is 4^k, and that kmers are currently attached to a 2^32 hashtable).</p>
+<h1 id="book-report-lhopital">Book report: L’hopital</h1>
+<p><a href="https://www.puf.com/content/L_h%C3%B4pital">Reference to the book</a></p>
+<p>This book is a small presentation of the structure of the French hospitals (and private clinics, both non profit and for profit).</p>
+<p>It mostly deals with the consequences of the <code>Hopital, Patient, Sante et Territoire</code> 2009 law, and how it lead to the current structure of the French hospital.</p>
+<p>In summary the director of the local <code>Agence Regionale de Sante</code> has most of the decisional power on the hospital, shared with the <code>Conseil Medical d'Etablissement</code> and the director is left with little decision power, he is mostly here to apply the decisions of the Minister of Health.<br />
+An important point is also that he is only allowed to decide how the money is allocated but not to sign the checks (this is the prerogative of the accountant who works for the French Treasury), thus hospitals tend to be late with bills even though they do pay them.</p>
+<p>This book also focused a lot on the <code>Groupe Homogene de Malade</code>, which is a new classification of patient (created by the author of the book) in order to have a better measurement of the operations of hospitals, cost per operation, frequency of operations and resource distribution.</p>
+<p>He also mentioned the dire need for better information systems inside hospitals and expressed the idea that for now a global (but shaky) information system is much more needed than a fancy but local one.<br />
+He also mentionned the current lack of engineers and other technical professions in hospitals.</p>
+<p>Current hospital software mostly deal with inventory and production tracking, but not with patients and the health process (i.e. following a patient through different departments, billing, setting up appointments etc…)</p>
+<p>Hospitals also suffer from the fact that they are: a company, a state company and a health service, thus having very little power over how they manage their resources, salary and hirings.</p>
+<h1 id="robots">RobotS</h1>
+<p>I finaly took the time to publish RobotS on <a href="https://crates.io/crates/RobotS">crates.io</a>, this was a long due task, but better late than never, right ?</p>
+<p>I talked a little with Samuel at the Paris Rust meetup and realized that there still wasn’t a nice solution for typed actors in rust. Apparently akka improved its design for akka-typed, which makes me want to take a look at it for redesigning RobotS types.</p>
+<p>It should also use tokio-rs for its scheduling system, I heard a lot of good (and when I looked it also seemed very nice) about future-rs too which could be a nice case study (at least for improving my futures design, even though I quite like the idea of having them be actors to).</p>
+<p>It may also be nice to look at how the actors have a monadic structure to them in order to take some of the good stuff from Haskell (since I am now a Haskell developper during the day).</p>
+
+        </div>
+
+				<div id="disqus_thread"></div>
+				<script>
+				/**
+				*  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+				*  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables*/
+				/*
+				var disqus_config = function () {
+				this.page.url = PAGE_URL;  // Replace PAGE_URL with your page's canonical URL variable
+				this.page.identifier = PAGE_IDENTIFIER; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+				};
+				*/
+				(function() { // DON'T EDIT BELOW THIS LINE
+				var d = document, s = d.createElement('script');
+				s.src = 'https://gamazepsgithubio.disqus.com/embed.js';
+				s.setAttribute('data-timestamp', +new Date());
+				(d.head || d.body).appendChild(s);
+				})();
+				</script>
+				<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+        <div id="footer">
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </div>
+
+    </body>
+</html>

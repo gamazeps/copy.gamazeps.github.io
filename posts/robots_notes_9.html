@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>gama's ramblings - Notes 9</title>
+        <link rel="stylesheet" href="../css/default.css" />
+        <link rel="stylesheet" href="../css/syntax.css" />
+        <link rel="stylesheet" href="../css/code.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">gama's ramblings</a>
+            </div>
+            <div id="navigation">
+                <a href="../">Home</a>
+                <a href="../about.html">About</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Notes 9</h1>
+            <div class="info">
+    Posted on February 12, 2016
+    
+        by Felix Raimundo
+    
+</div>
+
+<h1 id="failure-termination-handling.">Failure / Termination handling.</h1>
+<p>Now that we have nice Futures we would like to be able to react if they fail, or else our application might deadlock waiting for an answer.</p>
+<p>On the same idea, the current way to handle actors failures is not so good, indeed the code used to handle the failure is <em>in</em> the library code and thus is very hard to change.</p>
+<p>The solution I’m thinking about is to register a function to be called once an actor failed or is terminated.</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust">
+context.register_failure_handler(actor, |context, failure| <span class="op">{</span>
+   <span class="co">// ...</span>
+<span class="op">}</span></code></pre></div>
+<p>This would do two things: * Ask the targetted actor to notify us when he fails. * Saving this closure and use it when the notification is received.</p>
+<p>We could still keep the current behaviours by putting them as default handlers, which can be overwritten when needed.</p>
+<h2 id="implementation">Implementation</h2>
+<p>We will use a hashtable with ActorRef/ActorPath as keys and the closure as values.</p>
+<p>Before doing that we will also ensure that no two actors with the same path can be created (this was not done before), to do so we will simply check that when creating an actor, the father has no children with the same path. We will also need to check that the user does not include separators <code>/</code> in the name provided for his actor to avoid traversal (just like directory traversal in security stuffs).</p>
+<h1 id="failure-creation.">Failure creation.</h1>
+<p>For failures I propose the following structure:</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust"><span class="kw">struct</span> <span class="cn">Failure</span> <span class="op">{</span>
+    source: ActorRef,
+    reason: &amp;<span class="ot">'static</span> <span class="dt">str</span>,
+<span class="op">}</span></code></pre></div>
+<p>When an actor panics we have no way of knowing the reason why he panicked so the reason would be ‘panic’.</p>
+<p>Thus we need to add a method to have an actor fail.</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust"><span class="kw">fn</span> fail(<span class="kw">self</span>, context: ActorCell, reason: &amp;<span class="ot">'static</span> <span class="dt">str</span>) <span class="op">{</span>
+    <span class="kw">let</span> me = context.actor_ref();
+    <span class="kw">for</span> actor <span class="kw">in</span> context.monitored().iter() <span class="op">{</span>
+        context.tell(<span class="cn">Failure</span>::new(me.clone(), reason));
+    <span class="op">}</span>
+<span class="op">}</span></code></pre></div>
+<h1 id="registering-for-termination-notice.">Registering for termination notice.</h1>
+<p>This will be done by sending a message to an actor.</p>
+<h1 id="overall-call-history.">Overall call history.</h1>
+<p>The calling order will be the following: * Send a Register(ACtorRef) to an actor. * Check if the actor is still alive, if not call the closure. * The actor receives the message and puts its sender in the list of actors to notify. * The actor fails and sends a notification to all its registered actors. * The registerd actors receives a failure, checks if the source is an actor it monitors, if so calls its handler and unregisters.</p>
+<p>Note that with this we do not need to differenciate between children and other actors, as the only difference will be the handler. Nevertheless we still need to keep the children’s actor refs in the father as they are the only strong ref to them.</p>
+
+        </div>
+
+				<div id="disqus_thread"></div>
+				<script>
+				/**
+				*  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+				*  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables*/
+				/*
+				var disqus_config = function () {
+				this.page.url = PAGE_URL;  // Replace PAGE_URL with your page's canonical URL variable
+				this.page.identifier = PAGE_IDENTIFIER; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+				};
+				*/
+				(function() { // DON'T EDIT BELOW THIS LINE
+				var d = document, s = d.createElement('script');
+				s.src = 'https://gamazepsgithubio.disqus.com/embed.js';
+				s.setAttribute('data-timestamp', +new Date());
+				(d.head || d.body).appendChild(s);
+				})();
+				</script>
+				<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+        <div id="footer">
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </div>
+
+    </body>
+</html>

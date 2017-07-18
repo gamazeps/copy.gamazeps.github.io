@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>gama's ramblings - Upload your programs to your board</title>
+        <link rel="stylesheet" href="../css/default.css" />
+        <link rel="stylesheet" href="../css/syntax.css" />
+        <link rel="stylesheet" href="../css/code.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">gama's ramblings</a>
+            </div>
+            <div id="navigation">
+                <a href="../">Home</a>
+                <a href="../about.html">About</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Upload your programs to your board</h1>
+            <div class="info">
+    Posted on June 20, 2016
+    
+        by Felix Raimundo
+    
+</div>
+
+<p>In a previous article we saw how to compile a “Hello LED”, but did not actually run this program on a board, thus it was a bit useless.</p>
+<p>Let’s now see how we can put a program on a board and what are the tools involved in this operation.</p>
+<h1 id="launch-an-openocd-server">Launch an openocd server</h1>
+<p>First you will need to launch an openocd server, this allows you to connect yourself to your board.</p>
+<p>The command here (on ubuntu at least) is:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="ex">openocd</span> -f /usr/share/openocd/scripts/board/stm32f4discovery.cfg</code></pre></div>
+<p>The -f option allows you to specify the path to the configuration file that will be used to connect to the board.<br />
+Such a file provides information about the link type, the frequency of the transmission, the endianness and so on… You will never have to write such a file yourself in this tutorial and will probably never have to write one at all (except if your job is firmware engineer).</p>
+<p>You should have an output looking like:</p>
+<pre><code>Open On-Chip Debugger 0.9.0 (2015-09-02-10:42)
+Licensed under GNU GPL v2
+For bug reports, read
+    http://openocd.org/doc/doxygen/bugs.html
+Info : The selected transport took over low-level target control. The results might differ compared
+to plain JTAG/SWD
+adapter speed: 2000 kHz
+adapter_nsrst_delay: 100
+none separate
+srst_only separate srst_nogate srst_open_drain connect_deassert_srst
+Info : Unable to match requested speed 2000 kHz, using 1800 kHz
+Info : Unable to match requested speed 2000 kHz, using 1800 kHz
+Info : clock speed 1800 kHz
+Info : STLINK v2 JTAG v25 API v2 SWIM v0 VID 0x0483 PID 0x3748
+Info : using stlink api v2
+Info : Target voltage: 2.891618
+Info : stm32f4x.cpu: hardware has 6 breakpoints, 4 watchpoint</code></pre>
+<p>If the output looks like:</p>
+<pre><code>Open On-Chip Debugger 0.9.0 (2015-09-02-10:42)
+Licensed under GNU GPL v2
+For bug reports, read
+    http://openocd.org/doc/doxygen/bugs.html
+Info : The selected transport took over low-level target control. The results might differ compared
+to plain JTAG/SWD
+adapter speed: 2000 kHz
+adapter_nsrst_delay: 100
+none separate
+srst_only separate srst_nogate srst_open_drain connect_deassert_srst
+Info : Unable to match requested speed 2000 kHz, using 1800 kHz
+Info : Unable to match requested speed 2000 kHz, using 1800 kHz
+Info : clock speed 1800 kHz
+Error: open failed
+in procedure 'init' 
+in procedure 'ocd_bouncer'</code></pre>
+<p>This means that you have not plugged your board in, or that it is not recognized by your computer.</p>
+<h1 id="launch-arm-none-eabi-gdb">Launch arm-none-eabi-gdb</h1>
+<p>Now that we have an interface to the board we will have to interract with it in some ways, that’s where gdb comes at play !</p>
+<p>gdb is the GNU debugger, it allows us to controll the flow of execution of our program, and in this instance to do that on the board, from our own computer.</p>
+<p>First launch gdb and provide it a path to the binary that we are going to use (here the Hello LED one).</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="ex">arm-none-eabi-gdb</span> build/ch.elf</code></pre></div>
+<p>You should see:</p>
+<pre><code>➜  project arm-none-eabi-gdb build/ch.elf
+GNU gdb (GNU Tools for ARM Embedded Processors) 7.8.0.20150604-cvs
+Copyright (C) 2014 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later &lt;http://gnu.org/licenses/gpl.html&gt;
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.  Type &quot;show copying&quot;
+and &quot;show warranty&quot; for details.
+This GDB was configured as &quot;--host=i686-linux-gnu --target=arm-none-eabi&quot;.
+Type &quot;show configuration&quot; for configuration details.
+For bug reporting instructions, please see:
+&lt;http://www.gnu.org/software/gdb/bugs/&gt;.
+Find the GDB manual and other documentation resources online at:
+&lt;http://www.gnu.org/software/gdb/documentation/&gt;.
+For help, type &quot;help&quot;.
+Type &quot;apropos word&quot; to search for commands related to &quot;word&quot;...
+Reading symbols from build/ch.elf...done.</code></pre>
+<h2 id="connect-to-the-board">Connect to the board</h2>
+<p>Now that we have a running gdb we will need to connect ourselve to the board, that’s why we launched (and kept running) opencd.</p>
+<p>In order to connect to it, type the following command in the gdb prompt.</p>
+<pre><code>(gdb) target extended-remote localhost:3333</code></pre>
+<p>Here we tell gdb that our target is a remote one (not on your machine) and that we can conect to it through port 3333 (which has been open by openocd).</p>
+<h2 id="put-the-program-on-the-board">Put the program on the board</h2>
+<p>Once this is done you now have control over the board.</p>
+<p>First you will want to stop the program currently beeing executed with:</p>
+<pre><code>(gdb) mon halt</code></pre>
+<p>Then you will want to load your program on the board</p>
+<pre><code>(gdb) load</code></pre>
+<p>And then you can either tell the board to reset itself (with the new program) or you can launch it and surveil it with gdb</p>
+<pre><code>(gdb) mon reset</code></pre>
+<pre><code>(gdb) continue</code></pre>
+<p>If you did that you should see a blue LED blink on your board.<br />
+Congratulation you just upload your first program to a board (at least to this one) !</p>
+
+        </div>
+
+				<div id="disqus_thread"></div>
+				<script>
+				/**
+				*  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+				*  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables*/
+				/*
+				var disqus_config = function () {
+				this.page.url = PAGE_URL;  // Replace PAGE_URL with your page's canonical URL variable
+				this.page.identifier = PAGE_IDENTIFIER; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+				};
+				*/
+				(function() { // DON'T EDIT BELOW THIS LINE
+				var d = document, s = d.createElement('script');
+				s.src = 'https://gamazepsgithubio.disqus.com/embed.js';
+				s.setAttribute('data-timestamp', +new Date());
+				(d.head || d.body).appendChild(s);
+				})();
+				</script>
+				<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+        <div id="footer">
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </div>
+
+    </body>
+</html>

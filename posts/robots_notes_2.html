@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>gama's ramblings - Notes 2</title>
+        <link rel="stylesheet" href="../css/default.css" />
+        <link rel="stylesheet" href="../css/syntax.css" />
+        <link rel="stylesheet" href="../css/code.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">gama's ramblings</a>
+            </div>
+            <div id="navigation">
+                <a href="../">Home</a>
+                <a href="../about.html">About</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Notes 2</h1>
+            <div class="info">
+    Posted on January 24, 2016
+    
+        by Felix Raimundo
+    
+</div>
+
+<h1 id="todays-plan">Today’s plan</h1>
+<p>The plan today is to finish reading the paper about Idris and Erlang, then read Joe’s Armstrong paper about the history (and design decisions) of Erlang.</p>
+<p>Eventually I’d like to finish implementing the Futures.</p>
+<h1 id="reality">Reality</h1>
+<h2 id="a-concurrency-system-for-idris-erlang.">A concurrency system for IDRIS &amp; ERLANG.</h2>
+<p>I just finished reading the article about Idris and Erlang (<a href="http://lenary.co.uk/publications/dissertation/Elliott_BSc_Dissertation.pdf">“A concurrency system for IDRIS &amp; ERLANG”</a>), it was very interesting as it showed how someone would go about having type safety with an actor system. A conclusion of this article would be that typing an actor system is very hard, and some features (forwarding, getting type information about the sender, using Erlang’s <code>become</code>) are still not implemented yet anywhere.</p>
+<p>Nevertheless, using traits for defining the interface of actors could be a solution. Indeed, traits allow us to <em>pick</em> types, using them as markers (just like <code>Send</code> and <code>Sync</code> are marker traits) we could have actors only acepting messages of a given trait. One small issue with that is that to my knowledge structs can only be generic over a type and not over a trait.</p>
+<p>Overall this article was rather interresting, even though its results are not directly applicable to my project (as this paper talks about writting IDRIS code with dependant types that can be checked by its compiler and then compiling it to Erlang code). We may think that the same approach could be used to take advantage of Rust’s lifetime properties, but we will not follow this approach.</p>
+<h2 id="a-history-of-erlang.">A history of Erlang.</h2>
+<p>This article: <a href="http://dl.acm.org/citation.cfm?id=1238850&amp;dl=ACM&amp;coll=DL">“A History of Erlang”</a> by Joe Armstrong presents the history and design desicions behind Erlang, from its creation up to 2007 (time of the paper).</p>
+<p>Well this one was a biggy, but really instructive articles. It explains how Erlang was designed, what lead to some design choices (immutable messages, having a VM, building OTP and why they used prolog).</p>
+<p>It’s a bit long so I’ll only put a few notes on it in order to keep things short and readable.</p>
+<ul>
+<li>Using immutable <em>copyable</em> messages is very important. The insistance on the copyable aspect guarantees that no memory corrruption can appear and that if a process fails he doesn’t mess up the other ones. This is guaranted in RobotS by having messages be <code>Copy + Sync</code> (and <code>Send</code>, as the two imply the third even if the compiler does not guess it, see <a href="http://huonw.github.io/blog/2015/02/some-notes-on-send-and-sync/">this article</a>).</li>
+<li>GC is important. This is handled in RobotS thanks to Rust RAII and by actor supervision. Indeed when an actor fails, its parent is noticed and drops it if necessary (or restarts it).</li>
+<li>Mutexes are hard to use in a complex system. This is kinda solved in Robots for the user and will be solved by giving the <code>Sync</code> trait to actors (as they are <code>Sync</code> since the <code>ActorCell</code> wrapper guarantees the accesses).</li>
+<li>Fault-tolerance and error handling are super important. This is still very much a work in progress for RobotS, I don’t know if I will have time to do that before the end of the semester (but it should happen afterwards, as being unemployed leaves some spare time).</li>
+<li>Having everything act as a process (in interface at least) implies type information losses <code>When you send a message to a process, there should be no way of knowing is the process was some hardware device or just another process</code>. Having everything act as black boxes implies some dynamic typing / introspection by design.</li>
+<li>Communication with remote instances is also based on TCP/IP sockets, this confirms my design for RobotS.</li>
+<li>Sending binary data is not exactly done with copying and is needed for sending messages through sockets, this is nice because this is a probelematic area of my design, knowing that it was problematic for Joe Armstrong makes me feel better.</li>
+<li>There have been many efforts to introduce type systems to Erlang, they all failed, the one that got the closest at the time of writting of the paper was <a href="http://erlang.org/doc/man/dialyzer.html">Dialyzer</a>, which is ‘just’ a static analysis tool. The other approach is to use code generation, which is what we saw in the previous paper. This means that type guarantees have to be checked dynamically which is what is currently done in RobotS (another approach can be done and will be expanded on in the next paragraph).</li>
+</ul>
+<p>Now some notes on the way Erlang was implemented, it first started as a prototype with a very fast development cycles with many breaking changes, this lasted a few years before going to a more structured approach (design docs, then implemenation). Another common approach in the development was to test an idea, implement it for a few weeks, delete everything and reimplement it in a few hours.</p>
+<p>It reassures me a little to read this because this is kinda the approach taken during the early development of RobotS…</p>
+<p>Overall seeing how such a big project was created is very interesting and brings some insight in the design decisions of Erlang.</p>
+<h1 id="some-thoughts-about-types.">Some thoughts about types.</h1>
+<p>As said before trying to push types in a system that was not thought with types is doomed to fail, this is why even now we don’t really have typed actor systems besides akka’s attempt at it.</p>
+<p>An idea that came to my mind is to have protocols (and not types) as first order objects, this would ease the compiler’s job a lot and allow us to remove a lot of dynamic checks.</p>
+<p>Nevertheless it would imply that the user would need to consider protocols as a fondamental part of its application (even more than the main job of its actors / processes), it might come as a big thing to ask from the user, but I believe that this would result in much sounder code and would be a huge gain in time as the eventual application would be much more structured and easy to understand.</p>
+<p>I think I will explore this area and revamp the whole project with that idea in mind in a few monthes (as it is likely to fail I’d rather have a working system before doing experiments).</p>
+<h1 id="lets-get-back-to-futures.">Let’s get back to futures.</h1>
+<p>After some thoughts on the API I think I will have 4 ways to interract with Futures (all done with macros):</p>
+<ul>
+<li><code>complete!(future, value)</code>: This will complete the future with the provided value.</li>
+<li><code>do_calculations!(future, closure)</code>: This will apply the closure to the value inside the Future, and then write the result of the calculation in the Future.</li>
+<li><code>send_result!(future, actor_ref)</code>: This will take the value in the future and send it to the actor_ref, then it will drop the future.</li>
+<li><code>extract!(future, Type) -&gt; Type</code>: This will get the value inside the future in a synchronous way. This is a way that should be avoided as much as possible.</li>
+</ul>
+<p>The plan for implementing the <code>extract!</code> macro is to create a channel of type <code>Type</code>, spawn an actor with this channel, have the actor ask for the result to the Future, when the result is received, send it through the channel and kill itself.</p>
+<p>This is the only way I found to extract the value from the future in a synchronous manner and this should be used as infrequently as possible. The only use case would be if we need to get values from a future outside of an actor or during the initialization of the actor system (otherwise we can use <code>send_result!</code>), we will mostly need it for tests and the initialization of the actor system.</p>
+<p>So let’s get going !</p>
+<p>I will make some more notes tomorrow, but the biggest changes now are:</p>
+<ul>
+<li>ActorRef no longer hold a CompleteRef, if we want a Future we have a real one which is an actor under the hood.</li>
+<li><code>ask</code> disapeared from ActorRef, now we will need to go through the ActorCell or the ActorSystem.</li>
+</ul>
+<p>The second one may seem a bit tough, but since Futures are actors now, we need a way to spawn them which can only be done from an Actor with its ActorCell or by the ActorSystem.</p>
+<p>I guess that’s it for tonight !</p>
+
+        </div>
+
+				<div id="disqus_thread"></div>
+				<script>
+				/**
+				*  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+				*  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables*/
+				/*
+				var disqus_config = function () {
+				this.page.url = PAGE_URL;  // Replace PAGE_URL with your page's canonical URL variable
+				this.page.identifier = PAGE_IDENTIFIER; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+				};
+				*/
+				(function() { // DON'T EDIT BELOW THIS LINE
+				var d = document, s = d.createElement('script');
+				s.src = 'https://gamazepsgithubio.disqus.com/embed.js';
+				s.setAttribute('data-timestamp', +new Date());
+				(d.head || d.body).appendChild(s);
+				})();
+				</script>
+				<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+        <div id="footer">
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </div>
+
+    </body>
+</html>

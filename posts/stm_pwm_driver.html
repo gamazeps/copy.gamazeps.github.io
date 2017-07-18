@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>gama's ramblings - Using the PWM driver</title>
+        <link rel="stylesheet" href="../css/default.css" />
+        <link rel="stylesheet" href="../css/syntax.css" />
+        <link rel="stylesheet" href="../css/code.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">gama's ramblings</a>
+            </div>
+            <div id="navigation">
+                <a href="../">Home</a>
+                <a href="../about.html">About</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Using the PWM driver</h1>
+            <div class="info">
+    Posted on June 25, 2016
+    
+        by Felix Raimundo
+    
+</div>
+
+<p>Disclaimer, this article is currently a work in progress.</p>
+<p>In this article we will learn how to configure and use the PWM driver.</p>
+<h1 id="what-is-pwm">What is PWM ?</h1>
+<p>PWM stands for Pulse Width Modulation.</p>
+<p>This generates a square wave, of which you can control the frequenc, period and ratio of on/off time. Usually the frequency and period stay the same and what changes is the on/off ratio also called <code>duty cycle</code>.</p>
+<p>In the case of your stm32f407discovery board, this signal is a logical one, which means that it goes from 0V to 5V, and has a low current (about 20mA), it should not be used directly to drive components that use a lot of current as the board will not be able to provide it and will thus be damaged.</p>
+<p>PWM outputs of a board are usually linked to a reguler timer of your board, each timer can generate 4 PWM channels. These channel have the same clock frequency and period but can have different duty cycles.</p>
+<p>If you want to learn more about them, google is your friend :)</p>
+<h1 id="whats-the-point-of-a-pwm">What’s the point of a PWM ?</h1>
+<p>This part might be the one that will interest you the most.</p>
+<p>Since you control the on / off ratio of the PWM, you control the average value of the output, thus it can be used as a cheap way to generate an analog signal.</p>
+<p>Of course the signal is not really analog (you would have to use a DAC for that), but if the frequency divided by the period is high enough, it can look a lot as if it were (mechanical objects tend to work as a low pass filter, and thus do the smoothing for you).</p>
+<p>You can use this to control the intensity of a LED or the speed of a motor for example (you will have to use an H bridge in between the board and the motor though).</p>
+<p>Some components also use PWM as a way to transmit data, that is the case of some analog servo motors that take a PWM as input, some sensors also use a PWM as an output (some sonars do that).</p>
+<h1 id="finding-which-driver-and-channel-to-use">Finding which driver and channel to use</h1>
+<p>There are three main documents that will be useful to you:</p>
+<ul>
+<li><a href="http://www.st.com/content/ccc/resource/technical/document/reference_manual/3d/6d/5a/66/b4/99/40/d4/DM00031020.pdf/files/DM00031020.pdf/jcr:content/translations/en.DM00031020.pdf">STM32f407 reference manual</a></li>
+<li><a href="http://www.st.com/content/ccc/resource/technical/document/user_manual/70/fe/4a/3f/e7/e1/4f/7d/DM00039084.pdf/files/DM00039084.pdf/jcr:content/translations/en.DM00039084.pdf">STM32f407 discovery user manual</a></li>
+<li><a href="http://www.st.com/content/ccc/resource/technical/document/datasheet/ef/92/76/6d/bb/c2/4f/f7/DM00037051.pdf/files/DM00037051.pdf/jcr:content/translations/en.DM00037051.pdf">STM32F407 datasheet</a></li>
+</ul>
+<p>The first one contains the full documentation for the microcontroller, with all the registers and how to use them. You will probably need this at some point when ChibiOS’s drivers are not enough for you (it will come sooner than you might think).</p>
+<p>The second one is the one that will interest us now. It lets us know which functions are behind which pin and to what they are wired on the board. For example if we are looking for which pins control the 4 LEDs on the board, we can see that they are PD12-15.</p>
+<p>The third one also lets us know which functions are behind which pin, nevertheless it is the only one to mention which alternate fuctions these functions are.</p>
+<p>Since each pin can have multiple functions there is a need to say which one is used, this is the alternate function number mentionned above.</p>
+<p>Here we will want to control the LEDs on the board, thus we are going to use the PWM4 which is the Alternate Function 2 of the pins PD12-15.</p>
+<p>Note: If you found this part a bit tricky it’s perfectly normal, you will get used to it after some time :)</p>
+<h1 id="configuring-the-pwm">Configuring the PWM</h1>
+<p>You have to touch two configuration files <code>halconf.h</code> and <code>mcuconf.h</code> in order to properly use your PWM.</p>
+<p>In the first one you have to enable the PWM subsystem by setting <code>HAL_USE_PWM</code> to <code>TRUE</code>.</p>
+<p>In the second one you have the followong defines related to PWM</p>
+<div class="sourceCode"><pre class="sourceCode c"><code class="sourceCode c"><span class="co">/*</span>
+<span class="co"> * PWM driver system settings.</span>
+<span class="co"> */</span>
+<span class="pp">#define STM32_PWM_USE_ADVANCED              FALSE</span>
+<span class="pp">#define STM32_PWM_USE_TIM1                  FALSE</span>
+<span class="pp">#define STM32_PWM_USE_TIM2                  FALSE</span>
+<span class="pp">#define STM32_PWM_USE_TIM3                  FALSE</span>
+<span class="pp">#define STM32_PWM_USE_TIM4                  FALSE</span>
+<span class="pp">#define STM32_PWM_USE_TIM5                  FALSE</span>
+<span class="pp">#define STM32_PWM_USE_TIM8                  FALSE</span>
+<span class="pp">#define STM32_PWM_USE_TIM9                  FALSE</span>
+<span class="pp">#define STM32_PWM_TIM1_IRQ_PRIORITY         7</span>
+<span class="pp">#define STM32_PWM_TIM2_IRQ_PRIORITY         7</span>
+<span class="pp">#define STM32_PWM_TIM3_IRQ_PRIORITY         7</span>
+<span class="pp">#define STM32_PWM_TIM4_IRQ_PRIORITY         7</span>
+<span class="pp">#define STM32_PWM_TIM5_IRQ_PRIORITY         7</span>
+<span class="pp">#define STM32_PWM_TIM8_IRQ_PRIORITY         7</span>
+<span class="pp">#define STM32_PWM_TIM9_IRQ_PRIORITY         7</span></code></pre></div>
+<p>The first line allows you to activate the advanced functions of TIM1 and TIM8, you will probably not need this for now.</p>
+<p>Then you have the <code>STM32_PWM_USE_TIM*</code> which allow you to use the driver.</p>
+<p>Finally you have the <code>STM32_PWM_TIM*_IRQ_PRIORITY</code> which allow you to set the priority of the interruptions generated by this timer, for now the default values are good enough and we will not have to touch these.</p>
+<h1 id="configuring-a-pwm-driver.">Configuring a PWM driver.</h1>
+<p>The configuration structure is a PWMConfig whose definition is the following for the stm32f407dicovery, if you are using another board go to <a href="%7Bfilename%7D/blog/stm_find_port_hal.md">this page</a> to find the appropriate configuration.</p>
+<div class="sourceCode"><pre class="sourceCode c"><code class="sourceCode c"><span class="co">/**</span>
+<span class="co"> * </span><span class="an">@brief</span><span class="co">   Type of a PWM driver configuration structure.</span>
+<span class="co"> */</span>
+<span class="kw">typedef</span> <span class="kw">struct</span> {
+  <span class="co">/** </span>
+<span class="co">   * </span><span class="an">@brief</span><span class="co">   Timer clock in Hz.</span>
+<span class="co">   * </span><span class="in">@note</span><span class="co">    The low level can use assertions in order to catch invalid</span>
+<span class="co">   *          frequency specifications.</span>
+<span class="co">   */</span>
+  <span class="dt">uint32_t</span>                  frequency;
+  <span class="co">/** </span>
+<span class="co">   * </span><span class="an">@brief</span><span class="co">   PWM period in ticks.</span>
+<span class="co">   * </span><span class="in">@note</span><span class="co">    The low level can use assertions in order to catch invalid</span>
+<span class="co">   *          period specifications.</span>
+<span class="co">   */</span>
+  pwmcnt_t                  period;
+  <span class="co">/** </span>
+<span class="co">   * </span><span class="an">@brief</span><span class="co"> Periodic callback pointer.</span>
+<span class="co">   * </span><span class="in">@note</span><span class="co">  This callback is invoked on PWM counter reset. If set to</span>
+<span class="co">   *        </span><span class="an">@p</span><span class="co"> </span><span class="cv">NULL</span><span class="co"> then the callback is disabled.</span>
+<span class="co">   */</span>
+  pwmcallback_t             callback;
+  <span class="co">/** </span>
+<span class="co">   * </span><span class="an">@brief</span><span class="co"> Channels configurations.</span>
+<span class="co">   */</span>
+  PWMChannelConfig          channels[PWM_CHANNELS];
+  <span class="co">/* End of the mandatory fields.*/</span>
+  <span class="co">/** </span>
+<span class="co">   * </span><span class="an">@brief</span><span class="co"> TIM CR2 register initialization data.</span>
+<span class="co">   * </span><span class="in">@note</span><span class="co">  The value of this field should normally be equal to zero.</span>
+<span class="co">   */</span>
+  <span class="dt">uint32_t</span>                  cr2;
+<span class="pp">#if STM32_PWM_USE_ADVANCED || defined(__DOXYGEN__)</span>
+  <span class="co">/** </span>
+<span class="co">   * </span><span class="an">@brief</span><span class="co"> TIM BDTR (break &amp; dead-time) register initialization data.</span>
+<span class="co">   * </span><span class="in">@note</span><span class="co">  The value of this field should normally be equal to zero.</span>
+<span class="co">   */</span>                                                                     \   
+   <span class="dt">uint32_t</span>                 bdtr;
+<span class="pp">#endif</span>
+   <span class="co">/** </span>
+<span class="co">    * </span><span class="an">@brief</span><span class="co"> TIM DIER register initialization data.</span>
+<span class="co">    * </span><span class="in">@note</span><span class="co">  The value of this field should normally be equal to zero.</span>
+<span class="co">    * </span><span class="in">@note</span><span class="co">  Only the DMA-related bits can be specified in this field.</span>
+<span class="co">    */</span>
+   <span class="dt">uint32_t</span>                 dier;
+} PWMConfig;</code></pre></div>
+<p>Let’s go over each parameter:</p>
+<ul>
+<li>frequency: Be careful to note that this is the frequency of the clock, not the frequency of the square wave !</li>
+<li>period: This is the period in ticks, thus the frequency of the wave is frequency / period.</li>
+<li>callback: Pointer to a function called each time a period of the timer is over.</li>
+<li>channels: see below.</li>
+<li>cr2, btdr and dier: set them to zero, you will probably never use them anyway.</li>
+</ul>
+<h2 id="pwmchannelconfig">PWMChannelConfig</h2>
+<p>Here is the definition of a PWMChannelConfig:</p>
+<div class="sourceCode"><pre class="sourceCode c"><code class="sourceCode c"><span class="co">/**</span>
+<span class="co"> * </span><span class="an">@brief</span><span class="co">   Type of a PWM driver channel configuration structure.</span>
+<span class="co"> */</span>
+<span class="kw">typedef</span> <span class="kw">struct</span> {
+  <span class="co">/**</span>
+<span class="co">   * </span><span class="an">@brief</span><span class="co"> Channel active logic level.</span>
+<span class="co">   */</span>
+  pwmmode_t                 mode;
+  <span class="co">/**</span>
+<span class="co">   * </span><span class="an">@brief</span><span class="co"> Channel callback pointer.</span>
+<span class="co">   * </span><span class="in">@note</span><span class="co">  This callback is invoked on the channel compare event. If set to</span>
+<span class="co">   *        </span><span class="an">@p</span><span class="co"> </span><span class="cv">NULL</span><span class="co"> then the callback is disabled.</span>
+<span class="co">   */</span>
+  pwmcallback_t             callback;
+  <span class="co">/* End of the mandatory fields.*/</span>
+} PWMChannelConfig;</code></pre></div>
+<p>The mode can be one of the following three:</p>
+<ul>
+<li><code>PWM_OUTPUT_DISABLED</code>: Output not driven, callback only.</li>
+<li><code>PWM_OUTPUT_ACTIVE_HIGH</code>: Positive PWM logic, active is logic level one.</li>
+<li><code>PWM_OUTPUT_ACTIVE_LOW</code>: Inverse PWM logic, active is logic level zero.</li>
+</ul>
+<p>The callback is a function that will be called each time the state goes from active to inactive for that channel.</p>
+<h2 id="example-configuration">Example configuration</h2>
+<p>Here is a simple configuration that uses the first three channel of a PWM and which has a period of ~0.01s.</p>
+<div class="sourceCode"><pre class="sourceCode c"><code class="sourceCode c"><span class="dt">static</span> <span class="dt">const</span> PWMConfig led_pwm_config = {
+  <span class="dv">100000</span>,   <span class="co">/* 100Khz PWM clock frequency</span>
+<span class="co">  1024,     /* PWM period of 1024 ticks ~ 0.01 second*/</span>
+  NULL,     <span class="co">/* No callback at the end of a period. */</span>
+  { 
+    {PWM_OUTPUT_ACTIVE_HIGH, NULL}, <span class="co">/* First channel used as an active PWM with no callback. */</span>
+    {PWM_OUTPUT_ACTIVE_HIGH, NULL}, <span class="co">/* Second channel used as an active PWM with no callback. */</span>
+    {PWM_OUTPUT_ACTIVE_HIGH, NULL}, <span class="co">/* Third channel used as an active PWM with no callback. */</span>
+    {PWM_OUTPUT_DISABLED, NULL} <span class="co">/* Fourth channel not used */</span>
+  },
+  <span class="dv">0</span>,        <span class="co">/* Zero, as the doc says. */</span>
+  <span class="dv">0</span>,        <span class="co">/* Zero, as the doc says. */</span>
+};</code></pre></div>
+<h1 id="using-a-pwm-driver">Using a PWM driver</h1>
+<p>Now that we know how to write a PWMConfig we may want to use it on a PWMDriver and also finding out what can be done with such a driver.</p>
+<h2 id="what-can-be-done-with-a-driver.">What can be done with a driver.</h2>
+<p>The functions that are the most useful to us will be:</p>
+<pre><code>void pwmStart(PWMDriver *pwmp, const PWMConfig *config);
+void pwmStop(PWMDriver *pwmp);
+void pwmChangePeriod(PWMDriver *pwmp, pwmcnt_t period);
+void pwmEnableChannel(PWMDriver *pwmp,
+                      pwmchannel_t channel,
+                      pwmcnt_t width);
+void pwmDisableChannel(PWMDriver *pwmp, pwmchannel_t channel);</code></pre>
+<p>Note that <code>PWMDriver</code> structs (and those for each other driver too) are global objects defined by ChibiOS, thus if you want to use the driver of the 4th PWM, just use PWMD4 (which is defined by ChibiOs).</p>
+<h3 id="pwmstart">pwmStart</h3>
+<p>This starts a PWM driver with the given configuration.</p>
+<p>A driver needs to be started before being used.</p>
+<div class="sourceCode"><pre class="sourceCode c"><code class="sourceCode c"><span class="dt">static</span> <span class="dt">const</span> PWMConfig dummy_conf {
+    <span class="co">// ....</span>
+}
+
+<span class="dt">void</span> init_leds_pwm(<span class="dt">void</span>) {
+    pwmStart(&amp;PWMD4, &amp;dummy_conf);
+    <span class="co">// Do things with the PWMDriver.</span>
+}</code></pre></div>
+<h3 id="pwmstop">pwmStop</h3>
+<p>This stops the driver and it thus cannot be used afterwards (unless started again), you will probably never use it.</p>
+<div class="sourceCode"><pre class="sourceCode c"><code class="sourceCode c">pwmStart(&amp;PWMD4, &amp;dummy_conf); <span class="co">// Start the driver.</span>
+<span class="co">// Do things with the driver.</span>
+pwmStop(&amp;PWMD4); <span class="co">// We are done with the driver.</span></code></pre></div>
+<h3 id="pwmchangeperiod">pwmChangePeriod</h3>
+<p>Changes the period in ticks, pretty straightforward.</p>
+<h3 id="pwmenablechannel">pwmEnableChannel</h3>
+<p>This is what you will use the most.</p>
+<p>Allows you to set the number of ticks after which the PWM becomes inactive (the duty cycle), note that this is given in tick.</p>
+<div class="sourceCode"><pre class="sourceCode c"><code class="sourceCode c"><span class="co">// Here we are using the led_pwm_config defined above.</span>
+pwmEnableChannel(&amp;PWMD4, <span class="dv">0</span>, <span class="dv">256</span>); <span class="co">// on a quarter of the time.</span>
+pwmEnableChannel(&amp;PWMD4, <span class="dv">0</span>, <span class="dv">512</span>); <span class="co">// on half of the time.</span>
+pwmEnableChannel(&amp;PWMD4, <span class="dv">0</span>, <span class="dv">768</span>); <span class="co">// on three quarters of the time.</span></code></pre></div>
+<p>Note that <code>pwmchannel_t</code> start at 0.</p>
+<h3 id="pwmdisablechannel">pwmDisableChannel</h3>
+<p>This disables the channel, meaning that there is no output any more and that the callback is not called any more.</p>
+<p>To make it enabled again, call <code>pwmEnableChannel</code>.</p>
+<h2 id="example-fading-a-led">Example: Fading a LED</h2>
+<p>Here is an example that has a LED fade:</p>
+<p>Start by copying the hello led project, then we will have a few changes to make.</p>
+<p>First you will need to activate the PWM subsystem in <code>halconf.h</code>.</p>
+<div class="sourceCode"><pre class="sourceCode c"><code class="sourceCode c"><span class="pp">#define HAL_USE_PWM                 TRUE</span></code></pre></div>
+<p>Looking at the documentation linked above we can see that the blue LED on PD15 is linked to the fourth channel of PWM4, thus we will need to activate PWMD4.</p>
+<p>In order to do so, change the <code>mcuconf.h</code> so that you have:</p>
+<div class="sourceCode"><pre class="sourceCode c"><code class="sourceCode c"><span class="pp">#define STM32_PWM_USE_TIM4                  TRUE</span></code></pre></div>
+<p>Then we will need to set the alternate function of PD15, looking at the document we can see that <code>TIM4_CH4</code> is the alternate function 2. For this tutorial we will not use the <code>board.h</code> to do that, but the <code>palSetPadMode</code> function seen before.</p>
+<div class="sourceCode"><pre class="sourceCode c"><code class="sourceCode c"><span class="pp">#include </span><span class="im">&quot;ch.h&quot;</span>
+<span class="pp">#include </span><span class="im">&quot;hal.h&quot;</span>
+
+<span class="dt">static</span> <span class="dt">const</span> PWMConfig led_pwm_config = {
+  <span class="dv">100000</span>,   <span class="co">/* 100Khz PWM clock frequency */</span>
+  <span class="dv">1024</span>,     <span class="co">/* PWM period of 1024 ticks ~ 0.01 second*/</span>
+  NULL,     <span class="co">/* No callback at the end of a period. */</span>
+  { 
+    {PWM_OUTPUT_DISABLED, NULL},
+    {PWM_OUTPUT_DISABLED, NULL},
+    {PWM_OUTPUT_DISABLED, NULL},
+    {PWM_OUTPUT_ACTIVE_HIGH, NULL}, <span class="co">// Only the blue LED activated.</span>
+  },
+  <span class="dv">0</span>,        <span class="co">/* Zero, as the doc says. */</span>
+  <span class="dv">0</span>,        <span class="co">/* Zero, as the doc says. */</span>
+};
+
+<span class="dt">int</span> main(<span class="dt">void</span>) {
+    halInit();
+    chSysInit();
+
+    palSetPadMode(GPIOD, <span class="dv">15</span>, PAL_MODE_ALTERNATE(<span class="dv">2</span>));
+
+    pwmStart(&amp;PWMD4, &amp;led_pwm_config);
+
+    <span class="dt">int</span> intensity = <span class="dv">0</span>;
+
+    <span class="cf">while</span>(<span class="dv">1</span>) {
+        pwmEnableChannel(&amp;PWMD4, <span class="dv">3</span>, (intensity++) % <span class="dv">1024</span>);
+        chThdSleepMilliseconds(<span class="dv">1</span>); <span class="co">// sleeps for 1ms</span>
+    }
+    
+    <span class="cf">return</span> <span class="dv">0</span>;
+}</code></pre></div>
+<h2 id="example-regular-pwm-using-only-callbacks.">Example: Regular pwm using only callbacks.</h2>
+<p>Here we will do the same thing that we did before but by using callbacks.</p>
+<p>FIXME: this does not work, but why ? Note that this is supposed to work in theory…</p>
+<div class="sourceCode"><pre class="sourceCode c"><code class="sourceCode c"><span class="pp">#include </span><span class="im">&quot;ch.h&quot;</span>
+<span class="pp">#include </span><span class="im">&quot;hal.h&quot;</span>
+
+<span class="dt">static</span> <span class="dt">void</span> clear_pad(PWMDriver* dummy) {
+    (<span class="dt">void</span>) dummy;
+    palClearPad(GPIOD, <span class="dv">15</span>);
+}
+
+<span class="dt">static</span> <span class="dt">void</span> set_pad(PWMDriver* dummy) {
+    (<span class="dt">void</span>) dummy;
+    palSetPad(GPIOD, <span class="dv">15</span>);
+}
+
+<span class="dt">static</span> <span class="dt">const</span> PWMConfig led_pwm_config = {
+  <span class="dv">100000</span>,   <span class="co">/* 100Khz PWM clock frequency */</span>
+  <span class="dv">1024</span>,     <span class="co">/* PWM period of 1024 ticks ~ 0.01 second*/</span>
+  clear_pad,     <span class="co">/* Set the led on at the end of the period. */</span>
+  { 
+    {PWM_OUTPUT_DISABLED, NULL},
+    {PWM_OUTPUT_DISABLED, NULL},
+    {PWM_OUTPUT_DISABLED, NULL},
+    {PWM_OUTPUT_DISABLED, set_pad}, <span class="co">/* Set the led off when the timer changes state. */</span>
+  },
+  <span class="dv">0</span>,        <span class="co">/* Zero, as the doc says. */</span>
+  <span class="dv">0</span>,        <span class="co">/* Zero, as the doc says. */</span>
+  <span class="dv">0</span>,        <span class="co">/* Zero, as the doc says. */</span>
+};
+
+<span class="dt">int</span> main(<span class="dt">void</span>) {
+    halInit();
+    chSysInit();
+
+    palSetPadMode(GPIOD, <span class="dv">15</span>, PAL_MODE_OUTPUT_PUSHPULL); 
+
+    <span class="dt">int</span> intensity = <span class="dv">0</span>;
+
+    pwmStart(&amp;PWMD3, &amp;led_pwm_config);
+
+    <span class="cf">while</span>(<span class="dv">1</span>) {
+        pwmEnableChannel(&amp;PWMD3, <span class="dv">3</span>, (intensity++)%<span class="dv">1024</span>);
+        chThdSleepMilliseconds(<span class="dv">1</span>); <span class="co">// sleeps for 1ms</span>
+    }
+
+    <span class="cf">return</span> <span class="dv">0</span>;
+}</code></pre></div>
+
+        </div>
+
+				<div id="disqus_thread"></div>
+				<script>
+				/**
+				*  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+				*  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables*/
+				/*
+				var disqus_config = function () {
+				this.page.url = PAGE_URL;  // Replace PAGE_URL with your page's canonical URL variable
+				this.page.identifier = PAGE_IDENTIFIER; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+				};
+				*/
+				(function() { // DON'T EDIT BELOW THIS LINE
+				var d = document, s = d.createElement('script');
+				s.src = 'https://gamazepsgithubio.disqus.com/embed.js';
+				s.setAttribute('data-timestamp', +new Date());
+				(d.head || d.body).appendChild(s);
+				})();
+				</script>
+				<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+        <div id="footer">
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </div>
+
+    </body>
+</html>

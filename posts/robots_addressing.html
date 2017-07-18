@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>gama's ramblings - Actors Adressing.</title>
+        <link rel="stylesheet" href="../css/default.css" />
+        <link rel="stylesheet" href="../css/syntax.css" />
+        <link rel="stylesheet" href="../css/code.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">gama's ramblings</a>
+            </div>
+            <div id="navigation">
+                <a href="../">Home</a>
+                <a href="../about.html">About</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Actors Adressing.</h1>
+            <div class="info">
+    Posted on January  6, 2016
+    
+        by Felix Raimundo
+    
+</div>
+
+<h1 id="objectives.">Objectives.</h1>
+<p>Having a unified addresssing system for all struct that act as actors, whether local or distant.</p>
+<p>The current problem right now is that too many structure implement the CanReceive trait: root actors, regular actors and futures. It was choosen at first to have structures implement the CanReceive trait in order to enable the user to define his own interafces, but after some reflection it seems like it was a bad idea: the user should not have to do that and should simply use actors, if he can’t do that then there is a problem either on RobotS or his logic, which can either be solved with a PR or cannot be solved at all anyway.</p>
+<p>Thus I we will hide everyhthing under a new ActorRef structure with an enum inside it for the different kinds of struct that can act as actors, it would look like.</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust"><span class="kw">pub</span> <span class="kw">enum</span> InnerActor <span class="op">{</span>
+    Cthulhu(Cthulhu),,
+    Actor(ActorCell),
+    Future(Futures),
+<span class="op">}</span></code></pre></div>
+<h1 id="changes-in-the-root-actors.">Changes in the Root Actors.</h1>
+<p>We will implement Root Actors (user actor and system actor), as regular actors. They will create spawn actors when receiving a message. Indeed in the previous version we had a custom implementation because we wanted them to have an <code>actor_of</code> method through their references, here we will just have:</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust"><span class="kw">pub</span> <span class="kw">struct</span> RootActor;
+
+<span class="kw">impl</span> Actor <span class="kw">for</span> RootActor <span class="op">{</span>
+    <span class="kw">fn</span> receive(&amp;<span class="kw">self</span>, message: <span class="dt">Box</span>&lt;Any&gt;, context: ActorCell) <span class="op">{</span>
+        <span class="kw">if</span> <span class="kw">let</span> <span class="cn">Ok</span>(message) = <span class="dt">Box</span>::&lt;Any&gt;::downcast::&lt;(<span class="dt">Box</span>&lt;ActorFactory&gt;, <span class="dt">String</span>)&gt;(message) <span class="op">{</span>
+            <span class="kw">let</span> (props, name) = *message;
+            <span class="kw">let</span> actor_ref = context.actor_of(props, name);
+            context.tell(context.sender(), actor_ref);
+        <span class="op">}</span>
+    <span class="op">}</span>
+<span class="op">}</span></code></pre></div>
+<p>This means that the <code>actor_context.actor_of</code> method will return a <code>Future</code> instead of an <code>ActorRef</code>.</p>
+<p>This change in the root actors is a good thing because their code was a copy of the one for ActorRefs.</p>
+<h1 id="actor-path-and-actorref-api">Actor Path and ActorRef API</h1>
+<p>Since we tried to stabilize the RobotS API we will try not to change too many things, hopefully it will be almost invisible for the user (we already used a type called <code>ActorPath</code>).</p>
+<p>The ActorPath should be like:</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust"><span class="kw">pub</span> <span class="kw">enum</span> ActorPath <span class="op">{</span>
+    Local(<span class="dt">String</span>), <span class="co">// Local logical path.</span>
+    Distant(ConnectionInfo)
+<span class="op">}</span>
+
+<span class="kw">struct</span> ConnectionInfo <span class="op">{</span>
+    distant_logical_path: <span class="dt">String</span>,
+    ip_addr_port: <span class="dt">String</span>, <span class="co">// A bit ugly but that's for the v1, looks like &quot;0.0.0.0:10000&quot;.</span>
+<span class="op">}</span></code></pre></div>
+<p>And the <code>ActorRef</code> should look like:</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust"><span class="kw">pub</span> <span class="kw">struct</span> ActorRef <span class="op">{</span>
+    inner_actor: <span class="dt">Option</span>&lt;InnerActor&gt;, <span class="co">// None if the underlying actor is distant.</span>
+    actor_path: Arc&lt;ActorPath&gt;,
+<span class="op">}</span></code></pre></div>
+<p>Note that the infrmation on the fact that an actor is local or distant is there twice:</p>
+<ul>
+<li>Whether <code>inner_actor</code> is <code>None</code> or not.</li>
+<li>Whether the ActorPath enum is in the LOcal or Distant variants.</li>
+</ul>
+<p>This is not incredibly good from a software perspective, but it allows to have exactly the same interface for actor whether they are local or distant.</p>
+<p>Now the API should stay pretty much the same:</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust">    <span class="kw">fn</span> receive_system_message(&amp;<span class="kw">self</span>, _system_message: SystemMessage) <span class="op">{</span>
+        <span class="co">//...</span>
+    <span class="op">}</span>
+
+    <span class="kw">fn</span> receive(&amp;<span class="kw">self</span>, _message: InnerMessage, _sender: ActorRef) <span class="op">{</span>
+        <span class="co">//...</span>
+    <span class="op">}</span>
+
+    <span class="kw">fn</span> handle(&amp;<span class="kw">self</span>) <span class="op">{</span>
+        <span class="co">//...</span>
+    <span class="op">}</span>
+
+    <span class="kw">fn</span> path(&amp;<span class="kw">self</span>) -&gt; Arc&lt;ActorPath&gt; <span class="op">{</span>
+        <span class="co">//...</span>
+    <span class="op">}</span>
+
+    <span class="kw">pub</span> <span class="kw">fn</span> tell_to&lt;MessageTo: Message&gt;(&amp;<span class="kw">self</span>, to: ActorRef, message: MessageTo) <span class="op">{</span>
+        <span class="co">//...</span>
+    <span class="op">}</span>
+
+    <span class="kw">pub</span> <span class="kw">fn</span> ask_to&lt;MessageTo: Message, V: Message, E: <span class="bu">Send</span> + <span class="ot">'static</span>&gt;(&amp;<span class="kw">self</span>,
+                                                                     to: ActorRef,
+                                                                     message: MessageTo)
+                                                                     -&gt; Future&lt;V, E&gt; <span class="op">{</span>
+        <span class="co">//...</span>
+    <span class="op">}</span></code></pre></div>
+<p>And that’s about it.</p>
+<p>Cheers, gama</p>
+
+        </div>
+
+				<div id="disqus_thread"></div>
+				<script>
+				/**
+				*  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+				*  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables*/
+				/*
+				var disqus_config = function () {
+				this.page.url = PAGE_URL;  // Replace PAGE_URL with your page's canonical URL variable
+				this.page.identifier = PAGE_IDENTIFIER; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+				};
+				*/
+				(function() { // DON'T EDIT BELOW THIS LINE
+				var d = document, s = d.createElement('script');
+				s.src = 'https://gamazepsgithubio.disqus.com/embed.js';
+				s.setAttribute('data-timestamp', +new Date());
+				(d.head || d.body).appendChild(s);
+				})();
+				</script>
+				<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+        <div id="footer">
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </div>
+
+    </body>
+</html>

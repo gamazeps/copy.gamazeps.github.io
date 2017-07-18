@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>gama's ramblings - Installation</title>
+        <link rel="stylesheet" href="../css/default.css" />
+        <link rel="stylesheet" href="../css/syntax.css" />
+        <link rel="stylesheet" href="../css/code.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">gama's ramblings</a>
+            </div>
+            <div id="navigation">
+                <a href="../">Home</a>
+                <a href="../about.html">About</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Installation</h1>
+            <div class="info">
+    Posted on February 19, 2016
+    
+        by Felix Raimundo
+    
+</div>
+
+<h1 id="cross-compiler">Cross Compiler</h1>
+<p>In order to be able to compile and load your programs on a chip you will need some toolings.</p>
+<p>In our case we will compile code for an stm32f407 chip (with an ARM cortex M4 processor), this means that the code will be executed on this processor and not your computer’s one.</p>
+<p>The thing is that most personal computer have Intel processor, either 32 or 64 bits (x86 or x86-64), and your targeted processor may very well have a different architecture. In our case the targetted architecture is a 32 bits ARM processor, so binaries generated for my 64 bits Intel processor will definitely not run on our targetted processor.</p>
+<p>This is why we need <code>cross compilation</code>. This allows you to compile code for a different architecture on your computer.</p>
+<p>Since I (and most likely you too) have an Intel processor and will target an ARM processor you will need a cross compilation toolchain to work.</p>
+<p>The recommended one is <code>arm-none-eabi</code>, it contains a compiler, debugger, disassembler and much more.</p>
+<p>You can find it <a href="https://launchpad.net/gcc-arm-embedded">there</a>, follow the <a href="https://launchpadlibrarian.net/231136492/readme.txt">README</a> for the installation.</p>
+<p>BIG FAT WARNING: DO NOT USE THE 2015Q4 VERSION ! Indeed chibios causes ld to crash on this version of gcc, thus use the previous one (or the next one when it is out there).</p>
+<p>If you are too lazy to follow it you can do the following on linux:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="co"># put what you want as $install_dir, for me it is /opt/ARM</span>
+<span class="bu">cd</span> <span class="va">$install_dir</span> <span class="kw">&amp;&amp;</span> <span class="fu">tar</span> xjf gcc-arm-none-eabi-*-yyyymmdd-mac.tar.bz2
+<span class="bu">echo</span> <span class="st">'PATH=&quot;$PATH:$install_dir/gcc-arm-none-eabi-*/bin&quot;'</span> <span class="op">&gt;&gt;</span> ~/.zshrc <span class="co"># or .bashrc if you want.</span>
+
+<span class="co"># On 64 bit system you will need a 32 bit version of libc and libncurses</span>
+<span class="ex">apt-get</span> install libc6-i386 libncurses5:i386</code></pre></div>
+<p>You should be able to compile a dummy file like</p>
+<div class="sourceCode"><pre class="sourceCode c"><code class="sourceCode c"><span class="dt">int</span> main() {
+    <span class="cf">return</span> <span class="dv">0</span>;
+}</code></pre></div>
+<p>with the following command:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="ex">arm-none-eabi-gcc</span> -c test.c</code></pre></div>
+<h1 id="chibiosrt">ChibiOS/RT</h1>
+<p>This is the embedded RT/OS that we will use in this tutorial, so we kinda have to get it too.</p>
+<p>There are two ways of getting it:</p>
+<ul>
+<li>From the <a href="http://www.chibios.org/dokuwiki/doku.php?id=chibios:downloads:start">download page</a> of the project that will lead you to sourceforge.</li>
+<li>From the <a href>github repository</a>.</li>
+</ul>
+<p>I recommand the second one as sourceforge is currently a source of all sorts of malware, but you are adults (maybe).</p>
+<p>You should now have ChibiOS/RT’s sources on your computer I will ask you to follow the same structure as I do, this will be easier for everybody this way.</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="ex">tree</span>
+<span class="ex">.</span>
+├── <span class="ex">ChibiOS</span>
+<span class="co"># many stuffs inside chibi</span>
+└── <span class="ex">src</span></code></pre></div>
+<p>Now just try:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="bu">cd</span> ChibiOS/STM32/HAL-STM32F407-DISCOVERY
+<span class="fu">make</span></code></pre></div>
+<p>This should give an output like this:</p>
+<pre><code>Compiler Options
+arm-none-eabi-gcc -c -mcpu=cortex-m4 -O2 -ggdb -fomit-frame-pointer -falign-functions=16 -ffunction-sections -fdata-sections -fno-common -flto -Wall -Wextra -Wundef -Wstrict-prototypes -Wa,-alms=build/lst/ -DCORTEX_USE_FPU=FALSE -DTHUMB_PRESENT -mno-thumb-interwork -DTHUMB_NO_INTERWORKING -MD -MP -MF .dep/build.d -I. -I../../../os/common/startup/ARMCMx/compilers/GCC -I../../../os/common/startup/ARMCMx/devices/STM32F4xx -I../../../os/common/ext/CMSIS/include -I../../../os/common/ext/CMSIS/ST/STM32F4xx -I../../../os/hal/osal/os-less/ARMCMx -I../../../os/hal/include -I../../../os/hal/ports/common/ARMCMx -I../../../os/hal/ports/STM32/STM32F4xx -I../../../os/hal/ports/STM32/LLD/ADCv2 -I../../../os/hal/ports/STM32/LLD/CANv1 -I../../../os/hal/ports/STM32/LLD/DACv1 -I../../../os/hal/ports/STM32/LLD/DMAv2 -I../../../os/hal/ports/STM32/LLD/EXTIv1 -I../../../os/hal/ports/STM32/LLD/GPIOv2 -I../../../os/hal/ports/STM32/LLD/I2Cv1 -I../../../os/hal/ports/STM32/LLD/MACv1 -I../../../os/hal/ports/STM32/LLD/OTGv1 -I../../../os/hal/ports/STM32/LLD/RTCv2 -I../../../os/hal/ports/STM32/LLD/SDIOv1 -I../../../os/hal/ports/STM32/LLD/SPIv1 -I../../../os/hal/ports/STM32/LLD/TIMv1 -I../../../os/hal/ports/STM32/LLD/USARTv1 -I../../../os/hal/ports/STM32/LLD/xWDGv1 -I../../../os/hal/boards/ST_STM32F4_DISCOVERY -I../../../os/various main.c -o main.o
+
+Compiling crt0_v7m.s
+Compiling crt1.c
+Compiling vectors.c
+Compiling osal.c
+Compiling hal.c
+Compiling st.c
+Compiling hal_buffers.c
+Compiling hal_queues.c
+Compiling hal_mmcsd.c
+Compiling pal.c
+Compiling serial.c
+Compiling nvic.c
+Compiling hal_lld.c
+Compiling stm32_dma.c
+Compiling st_lld.c
+Compiling pal_lld.c
+Compiling serial_lld.c
+Compiling board.c
+Compiling main.c
+Linking build/ch.elf
+Creating build/ch.hex
+Creating build/ch.bin
+Creating build/ch.dmp
+
+   text    data     bss     dec     hex filename
+   3184     448  131072  134704   20e30 build/ch.elf
+Creating build/ch.list
+
+Done</code></pre>
+<h1 id="openocd">OpenOCD</h1>
+<p>OpenOCD is an “Open On-Chip Debugger”, this is what we will use to put programs on the board, stop a program, inspect the register and more.</p>
+<p>On Ubuntu you can simply apt-get it (if it is not allready installed):</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="ex">apt-get</span> install openocd</code></pre></div>
+<p>And that’s it you have installed most things to be able to program your board.</p>
+<p>Now that you have done the boring stuff you can grab a beer (or any other liquid you feel confortable with).</p>
+<p>In the next part I will quickly explain what ChibiOS/RT does for us and why we use it.</p>
+
+        </div>
+
+				<div id="disqus_thread"></div>
+				<script>
+				/**
+				*  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+				*  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables*/
+				/*
+				var disqus_config = function () {
+				this.page.url = PAGE_URL;  // Replace PAGE_URL with your page's canonical URL variable
+				this.page.identifier = PAGE_IDENTIFIER; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+				};
+				*/
+				(function() { // DON'T EDIT BELOW THIS LINE
+				var d = document, s = d.createElement('script');
+				s.src = 'https://gamazepsgithubio.disqus.com/embed.js';
+				s.setAttribute('data-timestamp', +new Date());
+				(d.head || d.body).appendChild(s);
+				})();
+				</script>
+				<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+        <div id="footer">
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </div>
+
+    </body>
+</html>

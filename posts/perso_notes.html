@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>gama's ramblings - Work Journal again</title>
+        <link rel="stylesheet" href="../css/default.css" />
+        <link rel="stylesheet" href="../css/syntax.css" />
+        <link rel="stylesheet" href="../css/code.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">gama's ramblings</a>
+            </div>
+            <div id="navigation">
+                <a href="../">Home</a>
+                <a href="../about.html">About</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Work Journal again</h1>
+            <div class="info">
+    Posted on June 20, 2016
+    
+        by Felix Raimundo
+    
+</div>
+
+<h1 id="rationale">Rationale</h1>
+<p>I have not been super efficient these last months code wise and I realized that keeping a work journal helped me focus on what to do and where to go, thus I am doing that again !</p>
+<h1 id="chibiosrts-tutorial">ChibiOS/RT’s tutorial</h1>
+<p>I started this project a while ago and was not able to continue it.<br />
+But it’s changing now, I wrote an article on how to upload a program to an stm32f407discovery board.</p>
+<p>I also thought a bit about where I wanted to go with this tutorial and the idea right now would be to take someone who:</p>
+<ul>
+<li>Can read and write some C.</li>
+<li>Knows what a makefile is, but not really how to use it.</li>
+<li>Some knowledge of threads, mutex and semaphores (I will still provide some link to learn more about them).</li>
+<li>No knowledge of ChibiOS/RT at all.</li>
+</ul>
+<p>And bring them to a point where they are confident:</p>
+<ul>
+<li>Structuring a ChibiOS/RT’s project.</li>
+<li>Reading and writting configuration files for ChibiOS/RT’s.</li>
+<li>Configuring board description files.</li>
+<li>Instantiate and use the HAL drivers.</li>
+<li>Writting a ChibiOS/RT’s application from the beggining to the end.</li>
+</ul>
+<p>This is a bit of an ambitious goal, but it should be doable in a few months and hopefully useful to a few people.</p>
+<p>The structure will be rather short articles to keep it readable and allow people to pick the parts that they are interested in, but if enough people manifest an interest I could try to structure it in a book (but that would be in the far too long term for me to say anything).</p>
+<h1 id="robots">RobotS</h1>
+<p>I also left RobotS hanging for a few months, this was a bad thing to do and I started working on it again. Right now I am getting myself familiarized with the code again (and my comments are not so good it seems, so I’ll have to fix that too) and working through estimating the work left to be done.</p>
+<p>Basically the most urgent part is to work on the serialization of the data. I think I am going to do what Roger Johansson did on his <a href="https://github.com/rogeralsing/gam">go actor model</a> and go for either protobuf or capnproto everywhere.</p>
+<p>Indeed if I want some sort of remoting I will need to send data accross machines, and downcasting Anys won’t do at all, so serialization will be needed super soon.</p>
+<p>The real question will be whether to serialize locally to instead of using Any. I find this solution quite elegant as this makes the code much more consistent.</p>
+<p>The only issue I have with this idea is that it is does not let the user chose its serialization method. But let’s consider that this is not a big issue for now and start have something running first.</p>
+<h1 id="what-i-did-before">What I did before</h1>
+<p>I was busy starting a new job, then leaving this job, then looking for a new job so it took some time… I also followed a few MOOCs that were super interesting (John Hopkins’ ones on fMRI are super cool as are most of their healthcare realted ones).</p>
+
+        </div>
+
+				<div id="disqus_thread"></div>
+				<script>
+				/**
+				*  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+				*  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables*/
+				/*
+				var disqus_config = function () {
+				this.page.url = PAGE_URL;  // Replace PAGE_URL with your page's canonical URL variable
+				this.page.identifier = PAGE_IDENTIFIER; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+				};
+				*/
+				(function() { // DON'T EDIT BELOW THIS LINE
+				var d = document, s = d.createElement('script');
+				s.src = 'https://gamazepsgithubio.disqus.com/embed.js';
+				s.setAttribute('data-timestamp', +new Date());
+				(d.head || d.body).appendChild(s);
+				})();
+				</script>
+				<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+        <div id="footer">
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </div>
+
+    </body>
+</html>
